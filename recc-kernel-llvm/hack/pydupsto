@@ -1,0 +1,12 @@
+#!/usr/bin/python3
+import sys
+
+fn = sys.argv[1]
+print("DUPSTO %s" % fn)
+with open(fn, "r") as fin:
+    with open("_" + fn, "w") as fout:
+        for _l in fin:
+            l = _l[:-1] # strip \n
+            print(l, file=fout)
+            if (l.find("sto") != -1):
+                print(l, file=fout)

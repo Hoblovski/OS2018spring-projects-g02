@@ -1,0 +1,19 @@
+#!/bin/sh
+
+LLVM_BUILD_DIR=../../llvm-3.9.0.src/build/bin
+LLAS=${LLVM_BUILD_DIR}/llvm-mc
+LLAS_FLAGS="-arch=cpu0el -filetype=obj"
+
+for fn in `ls _*.s`
+do
+  echo $fn
+  ${LLAS} ${LLAS_FLAGS} $fn -o ../build/${fn}.o
+done
+
+origg="putchar_busy.s putchar_nobusy.s"
+
+for fn in $origg
+do
+  echo $fn
+  ${LLAS} ${LLAS_FLAGS} $fn -o ../build/${fn}.o
+done

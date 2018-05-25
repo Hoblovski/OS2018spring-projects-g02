@@ -1,0 +1,7 @@
+#!/bin/sh
+
+LLVM_BUILD_DIR=../../llvm-3.9.0.src/build/bin
+LD=${LLVM_BUILD_DIR}/ld.lld
+LD_FLAGS="-T ../script.ld -e main"
+
+${LD} ${LD_FLAGS} ../build/*.o -o ../build/a.out

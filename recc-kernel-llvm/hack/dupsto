@@ -1,0 +1,11 @@
+#!/bin/sh
+for i in `ls *.o.s`
+do
+  ./pydupsto $i
+done
+
+origg="entry.s getchar_nobusy.s iehandling.s kernel_interface.s"
+for i in $origg
+do
+  ./pydupsto $i
+done
