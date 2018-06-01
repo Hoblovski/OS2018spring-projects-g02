@@ -24,7 +24,7 @@ $eval_fr_uart_out_ready_bit:
   and $fr, $fr, $t0
 
 # write arg to UART_OUT_PORT
-  lui $t0, 0x30               # t0=0x300000=UART_OUT_PORT
+  lui $t0, 0xFFFF               # t0=0xFFFF0000=UART_OUT_PORT
   sto $a0, 0($t0)
 
 # epilogue

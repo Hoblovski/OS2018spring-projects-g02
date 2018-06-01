@@ -46,11 +46,11 @@ typedef uint8_t mem_t[MEMSZ_BYTES];
 #define PORTSZ_BYTES 1024
 typedef uint8_t port_t[PORTSZ_BYTES];
 
-#define UART1_OUT 0x300000
-#define UART1_IN 0x300010
-#define IRQ_HANDLER 0xc0ffee00
-#define TIMER_PERIOD 0x0c0ffee0
-#define MEM_UART_OUT_DIRECT 0x300090
+#define UART1_OUT 0xffff0000
+#define UART1_IN 0xffff0010
+#define IRQ_HANDLER 0xffff0020
+#define TIMER_PERIOD 0xffff0030
+#define MEM_UART_OUT_DIRECT 0xfffffff0
 
 /******************************************************************************/
 // hw involved in paging

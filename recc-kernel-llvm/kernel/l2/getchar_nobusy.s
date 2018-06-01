@@ -20,8 +20,8 @@ getchar_nobusy:
   and $fr, $fr, $t0
 
 # read UART_IN_PORT
-  lui $t0, 0x30
-  loa $v0, 0x10($t0)   # 0x300010=UART_IN_PORT
+  lui $t0, 0xFFFF
+  loa $v0, 0x10($t0)   # 0xFFFF0010=UART_IN_PORT
 
 # epilogue
 	addiu	$sp, $sp, 24

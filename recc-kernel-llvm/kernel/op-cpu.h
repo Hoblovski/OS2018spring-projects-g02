@@ -56,10 +56,10 @@
 #define MAX_BRANCH_POS 255
 #define MAX_BRANCH_NEG 256
 
-#define UART1_OUT        0x00300000u
-#define UART1_IN         0x00300010u
-#define IRQ_HANDLER      0xc0ffee00u
-#define TIMER_PERIOD     0x0c0ffee0u
+#define UART1_OUT        0xffff0000u
+#define UART1_IN         0xffff0010u
+#define IRQ_HANDLER      0xffff0020u
+#define TIMER_PERIOD     0xffff0030u
 
 #define PC_index 0u
 #define SP_index 1u
@@ -81,23 +81,6 @@
 #define PAGE_FAULT_EXCEPTION_ASSERTED_BIT   (1u << 12u)
 #define PAGEING_ENABLE_BIT                  (1u << 13u)
 
-#define NUM_INSTRUCTION_TYPES 14u
-
-#define ADD_OP_CODE (0u  << OP_CODE_OFFSET)
-#define SUB_OP_CODE (1u  << OP_CODE_OFFSET)
-#define MUL_OP_CODE (2u  << OP_CODE_OFFSET)
-#define DIV_OP_CODE (3u  << OP_CODE_OFFSET)
-#define AND_OP_CODE (4u  << OP_CODE_OFFSET)
-#define OR_OP_CODE  (5u  << OP_CODE_OFFSET)
-#define NOT_OP_CODE (6u  << OP_CODE_OFFSET)
-#define	LOA_OP_CODE (7u  << OP_CODE_OFFSET)
-#define	STO_OP_CODE (8u  << OP_CODE_OFFSET)
-#define	SHR_OP_CODE (9u  << OP_CODE_OFFSET)
-#define	SHL_OP_CODE (10u << OP_CODE_OFFSET)
-#define	BEQ_OP_CODE (11u << OP_CODE_OFFSET)
-#define	BLT_OP_CODE (12u << OP_CODE_OFFSET)
-#define	LL_OP_CODE  (13u << OP_CODE_OFFSET)
-
-#define INITIAL_TIMER_PERIOD_VALUE 0xA0000
+#define INITIAL_TIMER_PERIOD_VALUE 0xA000
 
 #endif

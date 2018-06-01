@@ -454,7 +454,7 @@ $lbl3:
 #   发生中断时, 硬件:
 #       push PC           压入返回地址
 #       FR &= ~FRBIT_GIE  关中断
-#       jmp [IRQ_HANDLER] 从 IRQ_HANDLER = 0x300020 读取中断向量, 跳转过去
+#       jmp [IRQ_HANDLER] 从 IRQ_HANDLER = 0xFFFF0020 读取中断向量, 跳转过去
 
 	.globl	irq_handler
 	.p2align	2
