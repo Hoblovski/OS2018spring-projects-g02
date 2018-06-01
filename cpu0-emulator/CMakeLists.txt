@@ -9,4 +9,4 @@ add_executable(cpu0emu
   common.h
 	main.c)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -m32")

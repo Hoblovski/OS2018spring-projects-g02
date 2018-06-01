@@ -137,6 +137,7 @@ void exec_inst(machine_t* m, uint32_t inst)
   uint32_t imm = decode_imm16(inst);
   uint32_t immsext = decode_imm16sext(inst);
   uint32_t imm26sext = decode_imm26sext(inst);
+  uint32_t la, pa, isport;
 
 #ifdef INSTR_WATCH
   switch (instr_type(opcode)) {
@@ -184,12 +185,21 @@ void exec_inst(machine_t* m, uint32_t inst)
       m->regs[rx] = m->regs[ry] ^ m->regs[rz];
       break;
     case OPCODE_LD:
-      err = mem_read(m, m->regs[ry] + immsext, &(m->regs[rx]));
-      assert(err == 0 && "bad load");
+      la = m->regs[ry] + immsext;
+      // hw addr v-p translation only happen with paging on
+      pa = mmu_la2pa(m, la, &isport);
+      if (isport)
+        m->regs[rx] = port_lw(m, pa); 
+      else
+        m->regs[rx] = mem_lw(m, pa);
       break;
     case OPCODE_ST:
-      err = mem_write(m, m->regs[ry] + immsext, m->regs[rx]);
-      assert(err == 0 && "bad store");
+      la = m->regs[ry] + immsext;
+      pa = mmu_la2pa(m, la, &isport);
+      if (isport)
+        port_sw(m, pa, m->regs[rx]);
+      else
+        mem_sw(m, pa, m->regs[rx]);
       break;
     case OPCODE_SHR:
       m->regs[rx] = m->regs[ry] >> m->regs[rz];
@@ -242,8 +252,7 @@ void exec_inst(machine_t* m, uint32_t inst)
   }
 
   m->cycno++;
-  unsigned timer_period = 0;
-  assert(mem_read(m, TIMER_PERIOD, &timer_period) == 0);
+  uint32_t timer_period = port_lw(m, mmu_la2pa(m, TIMER_PERIOD, NULL));
   if (timer_period != 0 && m->cycno % timer_period == 0) {
     m->regs[REG_FR] |= FRBIT_CLK;
     m->cycno = 0;
@@ -310,20 +319,7 @@ void check_excep(machine_t* m)
 
   m->regs[REG_EPC] = m->regs[REG_PC];
   m->regs[REG_FR] &= ~FRBIT_GIE;  // disable interrupts
-  assert(mem_read(m, IRQ_HANDLER, &(m->regs[REG_PC])) == 0); // goto irq_handler
+  m->regs[REG_PC] = port_lw(m, mmu_la2pa(m, IRQ_HANDLER, NULL)); // goto irq handler
 }
 
-
-vma_t* add_vma(machine_t* m, uint32_t beg, uint32_t end, uint32_t perm)
-{
-  vma_t* vma = (vma_t*) malloc(sizeof(vma_t));
-  vma->begin = beg;
-  vma->end = end;
-  assert(vma->end > vma->begin);
-  vma->perm = perm;
-  vma->next = m->mm.vma;
-  m->mm.vma = vma;
-  vma->data = calloc(end - beg, 1);
-  return vma;
-}
 

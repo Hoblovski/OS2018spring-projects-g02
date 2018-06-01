@@ -10,8 +10,7 @@ unsigned uart_feed(struct machine_t* m, unsigned c){
   // generate an interrupt
   m->regs[REG_FR] |= FRBIT_UART1_INRDY;
   m->regs[REG_FR] |= FRBIT_UART1_IN;
-  // probably direct write instead mem_write? any justification?
-  assert(mem_write(m, UART1_IN, c) == 0);
+  port_sw(m, mmu_la2pa(m, UART1_IN, NULL), c);
 	return 0; // machine consumed input character
 }
 
@@ -26,9 +25,9 @@ unsigned uart_request(struct machine_t * m, unsigned * rtn){
     // the machine has something to emit, pull it out
     m->regs[REG_FR] |= FRBIT_UART1_OUTRDY;
     m->regs[REG_FR] |= FRBIT_UART1_OUT;
-    // same as feed, justify use of mem_read?
+    // pull output
     wait = UART_RANDOM_WAIT;
-    assert(mem_read(m, UART1_OUT, rtn) == 0);
+    *rtn = port_lw(m, mmu_la2pa(m, UART1_OUT, NULL));
     return 0;
   } else {
     wait--;
