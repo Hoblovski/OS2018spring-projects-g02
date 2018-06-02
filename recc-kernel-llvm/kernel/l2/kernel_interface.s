@@ -43,6 +43,25 @@ $deassert_bits_in_flags_register_end:
 
 
 ##############################################################################
+
+	.globl	write_flags_register
+	.p2align	2
+	.type	write_flags_register,@function
+	.ent	write_flags_register                    # @taskexit
+write_flags_register:
+	.set	noreorder
+	.set	nomacro
+
+  add $fr, $a0, $zr
+	ret $lr
+
+	.set	macro
+	.set	reorder
+	.end	write_flags_register
+$write_flags_register_end:
+	.size	write_flags_register, ($write_flags_register_end)-write_flags_register
+
+##############################################################################
 	.globl	read_flags_register
 	.p2align	2
 	.type	read_flags_register,@function

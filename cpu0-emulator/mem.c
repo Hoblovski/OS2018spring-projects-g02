@@ -24,6 +24,7 @@ static uint32_t map_port_noassert(uint32_t port_addr)
     case IRQ_HANDLER: return 8;
     case TIMER_PERIOD: return 12;
     case MEM_UART_OUT_DIRECT: return 16;
+    case PD_POINTER: return 20;
     default: return ~0u;
   }
 }
@@ -37,14 +38,18 @@ uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport)
     if (isport) *isport = 1;
     return port_addr;
   }
+  if (isport) *isport = 0;
+
+  // for 0xC0000000 - 0xFFFF0000,
+  //  unmapped (probably cached? we don't care 'bout cache)
+  if (IS_KLA(la))
+    return KLA2PA(la);
 
   // without paging, pa=la
-  if (isport) *isport = 0;
   if (!(m->regs[REG_FR] & FRBIT_PAGING_ENABLE))
     return la;
 
   // do v-p translation
-  if (isport) *isport = 0;
   uint32_t offset = GET_POFFSET(la);
   tlbent_t* te = tlb_lookfor(m, la);
   if (!(te->flags & TLB_FLAGS_P)) {
@@ -52,11 +57,19 @@ uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport)
     // do hw tlb refill
     // @te: victim
     // TODO: probably refactor here, to mimic hw behaviour
-    pde_t* pd = (pde_t*) m->regs[REG_CR3];
-    pde_t pde = *(uint32_t*) (pd + GET_PDIDX(la));
+    pde_t* pd = (pde_t*) port_lw(m, mmu_la2pa(m, PD_POINTER, NULL));
+    if ((uint32_t) pd < KSEG_BEGIN) {
+      Printf("pagedir [%08X] in user space!\n", (uint32_t) pd);
+      assert(0);
+    }
+    pde_t pde = mem_lw(m, mmu_la2pa(m, (uint32_t) (pd + GET_PDIDX(la)), NULL));
     assert((pde & PDE_FLAGS_P) && "bad memory access: page table not present, pagefault not implemented\n");
     pte_t* pt = (pte_t*) GET_PN(pde);
-    pte_t pte = *(uint32_t*) (pt + GET_PTIDX(la));
+    if ((uint32_t) pt < KSEG_BEGIN) {
+      Printf("pagetable [%08X] in user space!\n", (uint32_t) pt);
+      assert(0);
+    }
+    pte_t pte = mem_lw(m, mmu_la2pa(m, (uint32_t) (pt + GET_PTIDX(la)), NULL));
     assert((pte & PTE_FLAGS_P) && "bad memory access: page not present, pagefault not implemented\n");
     // now we get mapping: PN(la) -> PN(pte)
     te->vpn = GET_PN(la);
@@ -65,19 +78,6 @@ uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport)
     te->flags = TLB_FLAGS_P;
   }
   return GET_PN(te->ppn) | offset;
-}
-
-
-static uint32_t map_port(uint32_t port_addr)
-{
-  switch (port_addr) {
-    case UART1_IN: return 0;
-    case UART1_OUT: return 4;
-    case IRQ_HANDLER: return 8;
-    case TIMER_PERIOD: return 12;
-    case MEM_UART_OUT_DIRECT: return 16;
-    default: Printf("bad port %08X\n", port_addr); assert(0 && "unknown port");
-  }
 }
 
 

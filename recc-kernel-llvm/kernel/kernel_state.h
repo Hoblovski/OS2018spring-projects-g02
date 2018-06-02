@@ -31,6 +31,21 @@
 #define PID_UART1_IN_SERVER 6
 #define PID_COMMAND_SERVER 7
 
+typedef unsigned pte_t;
+typedef unsigned pde_t;
+// TODO: rwx check
+#define PDE_FLAGS_P 1
+#define PTE_FLAGS_P 1
+#define PDSHIFT 21
+#define PTMASK 0x7FF
+#define PTSHIFT 10
+#define POFFSETMASK 0x3FF
+#define GET_PDIDX(addr) ((addr) >> PDSHIFT)
+#define GET_PTIDX(addr) (((addr) >> PTSHIFT) & PTMASK)
+#define GET_PN(addr) ((addr) & ~POFFSETMASK)
+#define GET_POFFSET(addr) ((addr) & POFFSETMASK)
+#define PA2KLA(addr) ((addr) + KSEG_BEGIN)
+
 /*
  * PCB:
  *  PCB->priority is divided into 4 classes, from 0(highest) to >3(lowest).
@@ -65,5 +80,16 @@ extern unsigned int user_proc_4_stack[STACK_SIZE];
 extern unsigned int user_proc_5_stack[STACK_SIZE];
 extern unsigned int user_proc_6_stack[STACK_SIZE];
 extern unsigned int user_proc_7_stack[STACK_SIZE];
+
+struct page {
+  unsigned ref;   // TODO: make atomic
+  unsigned flags;
+};
+
+extern unsigned n_pages;
+extern unsigned n_kpages;
+extern struct page* pages;
+// this bit: is this page frame reserved for kernel, and can't be alloc'ed or freed?
+#define PF_KRESERVE 1
 
 #endif

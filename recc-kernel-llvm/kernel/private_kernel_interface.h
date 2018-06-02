@@ -37,6 +37,7 @@ void set_level_2_page_pointer(unsigned int *);
 void or_into_flags_register(unsigned int);
 void deassert_bits_in_flags_register(unsigned int);
 unsigned int read_flags_register(void);
+void write_flags_register(unsigned);
 void timer_interrupt_enable(void);
 void uart1_out_interrupt_enable(void);
 void uart1_in_interrupt_enable(void);

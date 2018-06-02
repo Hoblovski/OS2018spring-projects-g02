@@ -16,13 +16,18 @@
     under the License.
 */
 
-#define OP_CPU_PAGE_SIZE_NUM_BITS 10
-#define LEVEL_1_PAGE_TABLE_NUM_BITS 11
-#define LEVEL_2_PAGE_TABLE_NUM_BITS 11
+#define PAGE_SIZE_WIDTH 10
+#define PAGE_TABLE_SIZE_WIDTH 11
+#define PAGE_DIR_SIZE_WIDTH 11
+// 128 MB of physical address space
+//  actually it should be probed, but anyway -- this stupid hack
+#define MEMSIZE (128<<20)
+// kernel reserves 1MB of these
+#define KMEMSIZE (1<<20)
 
-#define OP_CPU_PAGE_SIZE (1 << OP_CPU_PAGE_SIZE_NUM_BITS)
+#define OP_CPU_PAGE_SIZE (1 << PAGE_SIZE_WIDTH)
 
-#define PAGE_OFFSET_MASK (0xFFFFFFFF >> (32u - OP_CPU_PAGE_SIZE_NUM_BITS))
+#define PAGE_OFFSET_MASK (0xFFFFFFFF >> (32u - PAGE_SIZE_WIDTH))
 #define LEVEL_1_PAGE_TABLE_INDEX_MASK 0x001FFC00
 #define LEVEL_2_PAGE_TABLE_INDEX_MASK 0xFFE00000
 
@@ -83,4 +88,7 @@
 
 #define INITIAL_TIMER_PERIOD_VALUE 0xA000
 
+#define USEG_BEGIN 0
+#define KSEG_BEGIN 0xc0000000
+#define PSEG_BEGIN 0xffff0000
 #endif

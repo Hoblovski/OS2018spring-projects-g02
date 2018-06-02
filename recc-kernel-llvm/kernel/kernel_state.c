@@ -44,3 +44,7 @@ unsigned int user_proc_4_stack[STACK_SIZE];
 unsigned int user_proc_5_stack[STACK_SIZE];
 unsigned int user_proc_6_stack[STACK_SIZE];
 unsigned int user_proc_7_stack[STACK_SIZE];
+
+struct page* pages;
+unsigned n_pages;
+unsigned n_kpages;

@@ -28,3 +28,4 @@
 /build_kernel.o
 /level_1_page_table_entries.i
 /level_1_page_table_entries.l2
+*.out

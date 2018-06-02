@@ -40,8 +40,7 @@ typedef uint32_t reg_t[NUM_REGS];
 
 /******************************************************************************/
 // memory and io port
-// 640 KB ought to be enough for any one -- someone from M$ 20+ years ago
-#define MEMSZ_BYTES 655360
+#define MEMSZ_BYTES (128<<20)
 typedef uint8_t mem_t[MEMSZ_BYTES];
 #define PORTSZ_BYTES 1024
 typedef uint8_t port_t[PORTSZ_BYTES];
@@ -50,7 +49,12 @@ typedef uint8_t port_t[PORTSZ_BYTES];
 #define UART1_IN 0xffff0010
 #define IRQ_HANDLER 0xffff0020
 #define TIMER_PERIOD 0xffff0030
+#define PD_POINTER 0xffff0040
 #define MEM_UART_OUT_DIRECT 0xfffffff0
+
+#define KSEG_BEGIN 0xC0000000
+#define IS_KLA(addr) (((addr)&KSEG_BEGIN) == KSEG_BEGIN)
+#define KLA2PA(kla) ((kla)&~KSEG_BEGIN)
 
 /******************************************************************************/
 // hw involved in paging

@@ -15,6 +15,7 @@ void machine_init(machine_t* m)
   m->regs[REG_FR] = 0x200;
   m->regs[REG_WR] = 4;
   m->regs[REG_ZR] = 0;
+  m->regs[REG_PC] = KSEG_BEGIN;
 
   m->cycno = 0;
 }

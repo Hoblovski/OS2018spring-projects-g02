@@ -184,7 +184,7 @@ void k_irq_handler(void){
 		/*  Something really bad happend. */
 		/*  Busy print will affect flags, but in this case everything is broken anyway */
 		printf_busy("IRQ FAILURE!\n");
-		or_into_flags_register(HALTED_BIT); /*  Halt the processor */
+    fatal(20);
 	}
 }
 
@@ -276,9 +276,7 @@ static void new_thread(unsigned int pid, unsigned int priority,
   message_queue_init(&pcbs[pid].messages, MAX_NUM_PROCESSES);
 }
 
-void k_kernel_init(void){
-	set_irq_handler(irq_handler); /*  Set before paging is enabled, otherwise a page fault doesn't know where to go */
-
+void stupid_proc_init(void){
 	task_queue_init(&ready_queue_p0, MAX_NUM_PROCESSES);
 	task_queue_init(&ready_queue_p1, MAX_NUM_PROCESSES);
 	task_queue_init(&ready_queue_p2, MAX_NUM_PROCESSES);
@@ -288,9 +286,8 @@ void k_kernel_init(void){
 	task_queue_init(&blocked_on_uart1_out_ready_queue, MAX_NUM_PROCESSES);
 	task_queue_init(&blocked_on_uart1_in_ready_queue, MAX_NUM_PROCESSES);
 
+  // task 0 will never be scheduled.
 	pcbs[0].state = ACTIVE; 
-  /*  Task 0 is not really a task, it is the 'int main' that we might want to return to later for graceful exit. */
-
   new_thread(PID_INIT,
       5, 0, (void (*)(void)) 0);
   new_thread(PID_USER_PROC_1,
@@ -307,12 +304,129 @@ void k_kernel_init(void){
       1, &user_proc_6_stack[STACK_SIZE-1], uart1_in_server);
   new_thread(PID_COMMAND_SERVER,
       3, &user_proc_7_stack[STACK_SIZE-1], command_server);
+}
 
+void mm_init(){
+  // initialize pages
+  // XXX crazy hack: because linker does not have PROVIDE
+  //  I can only assume kernel image size is less than 65536 bytes
+  *(unsigned*) 0xFFFFFFF0 = 0x0000A001;
+  pages = (struct page*) KSEG_BEGIN + 0x10000;
+  *(unsigned*) 0xFFFFFFF0 = 0x0000A002;
+  // page[i]: refer to physical address i*PGSZ ~ (i+1)*PGSZ
+  n_pages = MEMSIZE >> PAGE_SIZE_WIDTH;
+  *(unsigned*) 0xFFFFFFF0 = 0x0000A003;
+  n_kpages = KMEMSIZE >> PAGE_SIZE_WIDTH;
+  *(unsigned*) 0xFFFFFFF0 = 0x0000A004;
+  // the first n_kpages reserved for kernel
+  //  because kernel is loaded into address starting from 0
+  //  (a bad idea according to Linkers and Loaders however)
+  //  on power-up
+  for (unsigned i = 0; i < n_kpages; i++) {
+    pages[i].ref = 0;   // for reserved ones, ref won't be used
+    pages[i].flags = PF_KRESERVE;
+  }
+  *(unsigned*) 0xFFFFFFF0 = 0x0000A005;
+  for (unsigned i = n_kpages; i < n_pages; i++) {
+    pages[i].ref = 0;   // not used, can be alloc'ed
+    pages[i].flags = 0;
+  }
+  *(unsigned*) 0x10000 = 0xDEADBEEF;
+  *(unsigned*) 0xFFFFFFF0 = 0x0000A006;
+
+  or_into_flags_register(PAGEING_ENABLE_BIT);
+  *(unsigned*) 0xFFFFFFF0 = 0x0000A007;
+  // *(unsigned*) 0x10000 = 0xDEADBEEF;
+  *(unsigned*) 0xFFFFFFF0 = 0x0000A008;
+}
+
+// returns physical address
+//  kernel is able to directly access physical address
+unsigned alloc_page(){
+  for (int i = n_kpages; i < n_pages; i++)
+    if (pages[i].ref == 0) {
+      unsigned fr = read_flags_register();
+      deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
+      { // interrupt not enabled
+        pages[i].ref = 1;
+      }
+      write_flags_register(fr);
+      return (i<<PAGE_SIZE_WIDTH);
+    }
+  fatal(17); // out of memory
+  return 0;
+}
+
+// when a process gives up the page frame
+//  pa must be aligned
+void release_page(unsigned pa){
+  unsigned fr = read_flags_register();
+  deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
+  { // interrupt not enabled
+    unsigned pgidx = pa >> PAGE_SIZE_WIDTH;
+    pages[pgidx].ref--;
+  }
+  write_flags_register(fr);
+}
+
+// returns linear address to pte
+//  linear address is only used for user programs
+//  they begin from 0x100 (idea from M$ .com)
+pte_t* get_pte(pde_t* pd, unsigned la, unsigned alloc_for_pt){
+  pde_t* pde;
+  pte_t* pte;
+  pde = &(pd[GET_PDIDX(la)]);
+  if (*pde & PDE_FLAGS_P) {
+    // page table present
+    pte = (pte_t*) GET_PN(*pde);
+    pte = &(pte[GET_PTIDX(la)]);
+    return pte;
+  }
+  // page table not present, alloc a page frame for page table
+  if (alloc_for_pt) {
+    unsigned t;
+    t = alloc_page();
+    *pde = PA2KLA(t) | PDE_FLAGS_P;
+    pte = (pte_t*) GET_PN(*pde);
+    pte = &(pte[GET_PTIDX(la)]);
+    return pte;
+  } else {
+    return 0;
+  }
+}
+
+// with the given paging (pd),
+//  if la is not mapped to pa (either not mapped or mapped to another place)
+//  then establish a mapping from la to pa
+void map_segmemt(pde_t* pd, unsigned la, unsigned pa)
+{
+  if (GET_POFFSET(la) != GET_POFFSET(pa))
+    fatal(18);
+  la = GET_PN(la);
+  pa = GET_PN(pa);
+  pte_t* pte = get_pte(pd, la, 1);
+
+  if (GET_PN(*pte) == pa) {
+    // present, la maps to pa
+  } else {
+    release_page(GET_PN(*pte));
+    // offset of *pte is the flags
+    *pte = pa | GET_POFFSET(*pte) | PTE_FLAGS_P;
+  }
+}
+
+void k_kernel_init(void){
+  stupid_proc_init(); // really stupid
+
+  mm_init();
+
+	set_irq_handler(irq_handler); /*  Set before paging is enabled, otherwise a page fault doesn't know where to go */
 	set_timer_period(INITIAL_TIMER_PERIOD_VALUE);
 	timer_interrupt_enable();
 	uart1_out_interrupt_enable();
 	uart1_in_interrupt_enable();
-  // if direct output is not enabled, ignore
-  // printf_busy("Kernel load success!\n");
+
+  or_into_flags_register(PAGEING_ENABLE_BIT);
+
 	schedule_next_task();
 }
