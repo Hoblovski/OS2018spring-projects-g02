@@ -10,7 +10,7 @@ unsigned uart_feed(struct machine_t* m, unsigned c){
   // generate an interrupt
   m->regs[REG_FR] |= FRBIT_UART1_INRDY;
   m->regs[REG_FR] |= FRBIT_UART1_IN;
-  port_sw(m, mmu_la2pa(m, UART1_IN, NULL), c);
+  port_sw(m, mmu_la2pa(m, UART1_IN, NULL, 0), c);
 	return 0; // machine consumed input character
 }
 
@@ -27,7 +27,7 @@ unsigned uart_request(struct machine_t * m, unsigned * rtn){
     m->regs[REG_FR] |= FRBIT_UART1_OUT;
     // pull output
     wait = UART_RANDOM_WAIT;
-    *rtn = port_lw(m, mmu_la2pa(m, UART1_OUT, NULL));
+    *rtn = port_lw(m, mmu_la2pa(m, UART1_OUT, NULL, 0));
     return 0;
   } else {
     wait--;

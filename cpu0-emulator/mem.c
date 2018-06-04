@@ -25,13 +25,27 @@ static uint32_t map_port_noassert(uint32_t port_addr)
     case TIMER_PERIOD: return 12;
     case MEM_UART_OUT_DIRECT: return 16;
     case PD_POINTER: return 20;
+    case PAGEFAULT_BADVA: return 24;
+    case EFLAGS: return 28;
     default: return ~0u;
   }
 }
 
 
-uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport)
+uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport,
+    uint32_t priv_chk)
 {
+  // check for privilege
+  if (priv_chk && (m->regs[REG_FR] & FRBIT_PL) && IS_KLA(la)) {
+    if (la != MEM_UART_OUT_DIRECT) // allow debugging output in user mode
+      Printf("protection error: user code at %08X attemps to access ",
+          m->regs[REG_PC]);
+      if (IS_PORT(la)) 
+        Printf("port %08X\n", la); 
+      else
+        Printf("kvaddr %08X\n", la);
+      assert(0);
+  }
   // check for address mapped to io ports
   uint32_t port_addr = map_port_noassert(la);
   if (port_addr != ~0u) {
@@ -57,25 +71,24 @@ uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport)
     // do hw tlb refill
     // @te: victim
     // TODO: probably refactor here, to mimic hw behaviour
-    pde_t* pd = (pde_t*) port_lw(m, mmu_la2pa(m, PD_POINTER, NULL));
+    pde_t* pd = (pde_t*) port_lw(m, mmu_la2pa(m, PD_POINTER, NULL, 0));
     if ((uint32_t) pd < KSEG_BEGIN) {
       Printf("pagedir [%08X] in user space!\n", (uint32_t) pd);
       assert(0);
     }
-    pde_t pde = mem_lw(m, mmu_la2pa(m, (uint32_t) (pd + GET_PDIDX(la)), NULL));
+    pde_t pde = mem_lw(m, mmu_la2pa(m, (uint32_t) (pd + GET_PDIDX(la)), NULL, 0));
     assert((pde & PDE_FLAGS_P) && "bad memory access: page table not present, pagefault not implemented\n");
     pte_t* pt = (pte_t*) GET_PN(pde);
     if ((uint32_t) pt < KSEG_BEGIN) {
       Printf("pagetable [%08X] in user space!\n", (uint32_t) pt);
       assert(0);
     }
-    pte_t pte = mem_lw(m, mmu_la2pa(m, (uint32_t) (pt + GET_PTIDX(la)), NULL));
+    pte_t pte = mem_lw(m, mmu_la2pa(m, (uint32_t) (pt + GET_PTIDX(la)), NULL, 0));
     assert((pte & PTE_FLAGS_P) && "bad memory access: page not present, pagefault not implemented\n");
     // now we get mapping: PN(la) -> PN(pte)
     te->vpn = GET_PN(la);
     te->ppn = GET_PN(pte);
-    // TODO: in the future remove this stupid hardcode
-    te->flags = TLB_FLAGS_P;
+    te->flags = GET_PFLAGS(pte, pde);
   }
   return GET_PN(te->ppn) | offset;
 }

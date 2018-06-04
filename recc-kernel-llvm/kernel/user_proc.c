@@ -187,7 +187,7 @@ void command_server(void){
 						break;
           }default:{
 						printf("\n");
-						printf("Unknown command.");
+						printf("Unknown command.\n");
 					}
 				}
 				break;
@@ -196,5 +196,6 @@ void command_server(void){
 			}
 		}
 		reply_message(&input_server_reply, received_message.source_id);
+    printf("$ ");
 	}
 }

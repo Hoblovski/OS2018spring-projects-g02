@@ -46,6 +46,7 @@ ${BUILD_DIR}/a.img: ${BUILD_DIR}/a.out
 
 ${BUILD_DIR}/%.o: ${BUILD_DIR}/%.bc
 	${LLC} ${LLC_FLAGS} $< -o $@ -filetype=obj
+	${LLC} ${LLC_FLAGS} $< -o $@.s -filetype=asm
 
 ${BUILD_DIR}/%.bc: ${SRC_DIR}/%.c ${SRC_DIR}/*.h # FIXME: obj depends on all headers?!
 	${CLANG} ${CLANG_FLAGS} $< -o $@ -c

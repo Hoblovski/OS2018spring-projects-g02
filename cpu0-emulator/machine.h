@@ -36,6 +36,9 @@ typedef uint32_t reg_t[NUM_REGS];
 #define FRBIT_UART1_IN (1u << 8u)
 #define FRBIT_UART1_OUTRDY (1u << 9u)
 #define FRBIT_UART1_INRDY (1u << 10u)
+// priviledge level, 0 for kernel, 1 for user
+#define FRBIT_PL (1u<<11u)
+#define FRBIT_PAGEFAULT (1u<<12u)
 #define FRBIT_PAGING_ENABLE (1u << 13u)
 
 /******************************************************************************/
@@ -50,14 +53,22 @@ typedef uint8_t port_t[PORTSZ_BYTES];
 #define IRQ_HANDLER 0xffff0020
 #define TIMER_PERIOD 0xffff0030
 #define PD_POINTER 0xffff0040
+#define PAGEFAULT_BADVA 0xffff0050
+#define EFLAGS 0xffff0060
 #define MEM_UART_OUT_DIRECT 0xfffffff0
 
 #define KSEG_BEGIN 0xC0000000
+#define PSEG_BEGIN 0xFFFF0000
 #define IS_KLA(addr) (((addr)&KSEG_BEGIN) == KSEG_BEGIN)
+#define IS_PORT(addr) (((addr)&PSEG_BEGIN) == PSEG_BEGIN) 
 #define KLA2PA(kla) ((kla)&~KSEG_BEGIN)
 
 /******************************************************************************/
 // hw involved in paging
+//
+// pte structure:
+//    22        2         8
+//    framebase reserved  flags
 typedef uint32_t pde_t;
 typedef uint32_t pte_t;
 #define PDSHIFT 21
@@ -70,6 +81,7 @@ typedef uint32_t pte_t;
 #define GET_POFFSET(addr) ((addr) & POFFSETMASK)
 #define PDE_FLAGS_P 1
 #define PTE_FLAGS_P 1
+#define GET_PFLAGS(pte, pde) ((pte) & 0xFF)
 
 // fully associative tlb
 #define TLB_SIZE 64
@@ -100,8 +112,8 @@ void port_sw(machine_t* m, uint32_t port_addr, uint32_t v);
 
 // a stupid vp address translation
 tlbent_t* tlb_lookfor(machine_t* m, uint32_t pa);
-uint32_t mmu_la2pa(machine_t* m, uint32_t pa, uint32_t* isport);
-
+uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport,
+    uint32_t priv_chk);
 // machine specific
 extern void check_excep(machine_t* m);
 extern void exec_inst(machine_t* m, uint32_t inst);

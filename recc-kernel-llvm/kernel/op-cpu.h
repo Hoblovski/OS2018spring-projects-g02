@@ -82,7 +82,9 @@
 #define UART1_IN_ASSERTED_BIT               (1u << 8u)
 #define UART1_OUT_READY_BIT                 (1u << 9u)
 #define UART1_IN_READY_BIT                  (1u << 10u)
-#define DIV_ZERO_ASSERTED_BIT               (1u << 11u)
+// we don't have divisions at all
+// #define DIV_ZERO_ASSERTED_BIT               (1u << 11u)
+#define PRIVILEGE_BIT                       (1u << 11u)
 #define PAGE_FAULT_EXCEPTION_ASSERTED_BIT   (1u << 12u)
 #define PAGEING_ENABLE_BIT                  (1u << 13u)
 

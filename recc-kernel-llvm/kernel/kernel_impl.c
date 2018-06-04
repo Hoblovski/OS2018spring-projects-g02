@@ -310,14 +310,10 @@ void mm_init(){
   // initialize pages
   // XXX crazy hack: because linker does not have PROVIDE
   //  I can only assume kernel image size is less than 65536 bytes
-  *(unsigned*) 0xFFFFFFF0 = 0x0000A001;
   pages = (struct page*) KSEG_BEGIN + 0x10000;
-  *(unsigned*) 0xFFFFFFF0 = 0x0000A002;
   // page[i]: refer to physical address i*PGSZ ~ (i+1)*PGSZ
   n_pages = MEMSIZE >> PAGE_SIZE_WIDTH;
-  *(unsigned*) 0xFFFFFFF0 = 0x0000A003;
   n_kpages = KMEMSIZE >> PAGE_SIZE_WIDTH;
-  *(unsigned*) 0xFFFFFFF0 = 0x0000A004;
   // the first n_kpages reserved for kernel
   //  because kernel is loaded into address starting from 0
   //  (a bad idea according to Linkers and Loaders however)
@@ -326,18 +322,14 @@ void mm_init(){
     pages[i].ref = 0;   // for reserved ones, ref won't be used
     pages[i].flags = PF_KRESERVE;
   }
-  *(unsigned*) 0xFFFFFFF0 = 0x0000A005;
   for (unsigned i = n_kpages; i < n_pages; i++) {
     pages[i].ref = 0;   // not used, can be alloc'ed
     pages[i].flags = 0;
   }
   *(unsigned*) 0x10000 = 0xDEADBEEF;
-  *(unsigned*) 0xFFFFFFF0 = 0x0000A006;
 
   or_into_flags_register(PAGEING_ENABLE_BIT);
-  *(unsigned*) 0xFFFFFFF0 = 0x0000A007;
   // *(unsigned*) 0x10000 = 0xDEADBEEF;
-  *(unsigned*) 0xFFFFFFF0 = 0x0000A008;
 }
 
 // returns physical address

@@ -12,8 +12,8 @@ uint32_t excep = 0;
 void machine_init(machine_t* m)
 {
   memset(m, 0, sizeof(*m));
-  m->regs[REG_FR] = 0x200;
-  m->regs[REG_WR] = 4;
+  m->regs[REG_FR] = FRBIT_UART1_OUTRDY;
+  m->regs[REG_WR] = 4; // recc's stupid design really
   m->regs[REG_ZR] = 0;
   m->regs[REG_PC] = KSEG_BEGIN;
 
@@ -125,7 +125,14 @@ void dump_fr(machine_t* m)
     Printf("IRD ");
 }
 
-
+// TODO: protection fault should halt machine? or trigger exception?
+#define WRITE_REG(m, rx, val) do {\
+  if (rx == REG_FR && (m->regs[REG_FR] & FRBIT_PL)) {\
+    Printf("protection error: user code at %08X attemps to write $fr\n", m->regs[REG_PC]);\
+    assert(0);\
+  }\
+  m->regs[rx] = val;\
+} while (0)
 
 void exec_inst(machine_t* m, uint32_t inst)
 {
@@ -165,48 +172,48 @@ void exec_inst(machine_t* m, uint32_t inst)
   int err = 0;
   switch (opcode) {
     case OPCODE_ADD:
-      m->regs[rx] = m->regs[ry] + m->regs[rz];
+      WRITE_REG(m, rx, m->regs[ry] + m->regs[rz]);
       break;
     case OPCODE_SUB:
-      m->regs[rx] = m->regs[ry] - m->regs[rz];
+      WRITE_REG(m, rx, m->regs[ry] - m->regs[rz]);
       break;
     case OPCODE_MUL:
-      m->regs[rx] = m->regs[ry] * m->regs[rz];
+      WRITE_REG(m, rx, m->regs[ry] * m->regs[rz]);
       break;
     case OPCODE_DIV:
       assert(0 && "div not implemented");
       break;
     case OPCODE_AND:
-      m->regs[rx] = m->regs[ry] & m->regs[rz];
+      WRITE_REG(m, rx, m->regs[ry] & m->regs[rz]);
       break;
     case OPCODE_OR:
-      m->regs[rx] = m->regs[ry] | m->regs[rz];
+      WRITE_REG(m, rx, m->regs[ry] | m->regs[rz]);
       break;
     case OPCODE_XOR:
-      m->regs[rx] = m->regs[ry] ^ m->regs[rz];
+      WRITE_REG(m, rx, m->regs[ry] ^ m->regs[rz]);
       break;
     case OPCODE_LD:
       la = m->regs[ry] + immsext;
       // hw addr v-p translation only happen with paging on
-      pa = mmu_la2pa(m, la, &isport);
+      pa = mmu_la2pa(m, la, &isport, 1);
       if (isport)
-        m->regs[rx] = port_lw(m, pa); 
+        WRITE_REG(m, rx, port_lw(m, pa););
       else
-        m->regs[rx] = mem_lw(m, pa);
+        WRITE_REG(m, rx, mem_lw(m, pa));
       break;
     case OPCODE_ST:
       la = m->regs[ry] + immsext;
-      pa = mmu_la2pa(m, la, &isport);
+      pa = mmu_la2pa(m, la, &isport, 1);
       if (isport)
         port_sw(m, pa, m->regs[rx]);
       else
         mem_sw(m, pa, m->regs[rx]);
       break;
     case OPCODE_SHR:
-      m->regs[rx] = m->regs[ry] >> m->regs[rz];
+      WRITE_REG(m, rx, m->regs[ry] >> m->regs[rz]);
       break;
     case OPCODE_SHL:
-      m->regs[rx] = m->regs[ry] << m->regs[rz];
+      WRITE_REG(m, rx, m->regs[ry] << m->regs[rz]);
       break;
     case OPCODE_BEQ:
       if (m->regs[rx] == m->regs[ry])
@@ -217,14 +224,14 @@ void exec_inst(machine_t* m, uint32_t inst)
         m->regs[REG_PC] += immsext;
       break;
     case OPCODE_ADDIU:
-      m->regs[rx] = m->regs[ry] + immsext;
+      WRITE_REG(m, rx, m->regs[ry] + immsext);
       break;
     case OPCODE_LUI:
-      m->regs[rx] = imm << 16;
+      WRITE_REG(m, rx, imm << 16);
       break;
 
     case OPCODE_ORI:
-      m->regs[rx] = m->regs[ry] | imm;
+      WRITE_REG(m, rx, m->regs[ry] | imm);
       break;
     case OPCODE_LB:
       assert(0 && "lb todo");
@@ -253,7 +260,7 @@ void exec_inst(machine_t* m, uint32_t inst)
   }
 
   m->cycno++;
-  uint32_t timer_period = port_lw(m, mmu_la2pa(m, TIMER_PERIOD, NULL));
+  uint32_t timer_period = port_lw(m, mmu_la2pa(m, TIMER_PERIOD, NULL, 0));
   if (timer_period != 0 && m->cycno % timer_period == 0) {
     m->regs[REG_FR] |= FRBIT_CLK;
     m->cycno = 0;
@@ -273,9 +280,18 @@ void check_excep(machine_t* m)
     Printf("@ [%08X] eret", m->regs[REG_PC]);
     fflush(stdout);
 #endif
+    assert((!(m->regs[REG_FR] & FRBIT_PL)) && 
+        "eret in user mode. have you checked writing to fr in user mode?");
     m->regs[REG_FR] &= ~FRBIT_ERET;
     m->regs[REG_FR] |= FRBIT_GIE; // enable interrupts
     m->regs[REG_PC] = m->regs[REG_EPC];
+    // XXX: eflags stored in memory, not suitable for hardware implementation
+    if (port_lw(m, mmu_la2pa(m, EFLAGS, NULL, 0)) & FRBIT_PL) {
+      // in user mode before exception, return to user mode
+      m->regs[REG_FR] |= FRBIT_PL;
+    } else {
+      // in kernel mode before exception, stay in kernel mode
+    }
 #ifdef EXCEP_WATCH
     Printf(" to %08X\n", m->regs[REG_PC]);
     dump_fr(m);
@@ -319,8 +335,8 @@ void check_excep(machine_t* m)
     return;
 
   m->regs[REG_EPC] = m->regs[REG_PC];
-  m->regs[REG_FR] &= ~FRBIT_GIE;  // disable interrupts
-  m->regs[REG_PC] = port_lw(m, mmu_la2pa(m, IRQ_HANDLER, NULL)); // goto irq handler
+  m->regs[REG_FR] &= ~(FRBIT_GIE | FRBIT_PL);  // disable interrupts, enter kernel mode
+  m->regs[REG_PC] = port_lw(m, mmu_la2pa(m, IRQ_HANDLER, NULL, 0)); // goto irq handler
 }
 
 

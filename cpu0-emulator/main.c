@@ -81,7 +81,7 @@ void cpu_run(machine_t* m, unsigned n_cycles)
     // actually execute
     check_excep(m);
     uint32_t isport = 0;
-    uint32_t inst = mem_lw(m, mmu_la2pa(m, m->regs[REG_PC], &isport));
+    uint32_t inst = mem_lw(m, mmu_la2pa(m, m->regs[REG_PC], &isport, 1));
     assert(!isport && "executing into port area!");
     exec_inst(m, inst);
     fflush(stdout);
