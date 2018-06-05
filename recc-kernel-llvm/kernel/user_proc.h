@@ -16,27 +16,21 @@
     under the License.
 */
 
-#include "queue.h"
-#include "public_kernel_interface.h"
-#include "fatal.h"
+#define PID_INIT 0
+#define PID_USER_PROC_1 1
+#define PID_CLOCK_COUNTER 2
+#define PID_UART1_OUT_READY_NOTIFIER 3
+#define PID_UART1_OUT_SERVER 4
+#define PID_UART1_IN_READY_NOTIFIER 5
+#define PID_UART1_IN_SERVER 6
+#define PID_COMMAND_SERVER 7
 
-
-int do_compile(void);
 void user_proc_1(void);
-void user_proc_2(void);
 void clock_tick_counter(void);
-void clock_server(void);
 void uart1_out_ready_notifier(void);
 void uart1_out_server(void);
 void uart1_in_ready_notifier(void);
 void uart1_in_server(void);
 void command_server(void);
-
-int putchar_nobusy(int);
-int getchar_nobusy(void);
-void putchar_init(void);
-
-extern unsigned char data_image_size[4];
-extern unsigned char data[1][5];
 
 #endif

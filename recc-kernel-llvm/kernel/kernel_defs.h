@@ -25,51 +25,10 @@
 // kernel reserves 1MB of these
 #define KMEMSIZE (1<<20)
 
-#define OP_CPU_PAGE_SIZE (1 << PAGE_SIZE_WIDTH)
-
-#define PAGE_OFFSET_MASK (0xFFFFFFFF >> (32u - PAGE_SIZE_WIDTH))
-#define LEVEL_1_PAGE_TABLE_INDEX_MASK 0x001FFC00
-#define LEVEL_2_PAGE_TABLE_INDEX_MASK 0xFFE00000
-
-#define LEVEL_1_PAGE_TABLE_ENTRY_EXECUTE_BIT (1 << 0)
-#define LEVEL_1_PAGE_TABLE_ENTRY_WRITE_BIT   (1 << 1)
-#define LEVEL_1_PAGE_TABLE_ENTRY_READ_BIT    (1 << 2)
-#define LEVEL_2_PAGE_TABLE_ENTRY_INITIALIZED (0x1 << 9)
-#define LEVEL_1_PAGE_TABLE_ENTRY_INITIALIZED (0x1 << 9)
-
-#define BITS_PER_BRANCH_DIST  9u
-#define BITS_PER_LITERAL     16u
-#define BITS_PER_OP_CODE      5u
-#define OP_CODE_OFFSET       27u
-#define BITS_PER_REGISTER     9u
-#define ra_OFFSET            18u
-#define rb_OFFSET            (ra_OFFSET - BITS_PER_REGISTER)
-#define rc_OFFSET            (rb_OFFSET - BITS_PER_REGISTER)
-
-#define UNSHIFTED_OP_CODE_MASK   (0xFFFFFFFF >> (32u - BITS_PER_OP_CODE))
-#define OP_CODE_MASK             (UNSHIFTED_OP_CODE_MASK << OP_CODE_OFFSET)
-#define UNSHIFTED_REGISTER_MASK  (0xFFFFFFFF >> (32u - BITS_PER_REGISTER))
-#define ra_MASK                  (UNSHIFTED_REGISTER_MASK << ra_OFFSET)
-#define rb_MASK                  (UNSHIFTED_REGISTER_MASK << rb_OFFSET)
-#define rc_MASK                  (UNSHIFTED_REGISTER_MASK << rc_OFFSET)
-#define LITERAL_MASK             (0xFFFFFFFF >> (32u - BITS_PER_LITERAL))
-#define BRANCH_DISTANCE_MASK     (0xFFFFFFFF >> (32u - BITS_PER_BRANCH_DIST))
-
-#define BRANCH_DISTANCE_SIGN_BIT 0x100
-
-#define MAX_LL_CONSTANT 0xFFFF
-#define MAX_BRANCH_POS 255
-#define MAX_BRANCH_NEG 256
-
 #define UART1_OUT        0xffff0000u
 #define UART1_IN         0xffff0010u
 #define IRQ_HANDLER      0xffff0020u
 #define TIMER_PERIOD     0xffff0030u
-
-#define PC_index 0u
-#define SP_index 1u
-#define FR_index 4u
-#define WR_index 5u
 
 #define HALTED_BIT                          (1u << 0u)
 #define GLOBAL_INTERRUPT_ENABLE_BIT         (1u << 1u)
@@ -93,4 +52,26 @@
 #define USEG_BEGIN 0
 #define KSEG_BEGIN 0xc0000000
 #define PSEG_BEGIN 0xffff0000
+
+// TODO: rwx check
+#define PDE_FLAGS_P 1
+#define PTE_FLAGS_P 1
+#define PDSHIFT 21
+#define PTMASK 0x7FF
+#define PTSHIFT 10
+#define POFFSETMASK 0x3FF
+#define GET_PDIDX(addr) ((addr) >> PDSHIFT)
+#define GET_PTIDX(addr) (((addr) >> PTSHIFT) & PTMASK)
+#define GET_PN(addr) ((addr) & ~POFFSETMASK)
+#define GET_POFFSET(addr) ((addr) & POFFSETMASK)
+#define PA2KLA(addr) ((addr) + KSEG_BEGIN)
+// this bit: is this page frame reserved for kernel, and can't be alloc'ed or freed?
+#define PF_KRESERVE 1
+
+#define STACK_SIZE 256
+#define INIT_STACK_SIZE 256
+
+/* ensure that MAX_NUM_PROCESSES is an exponent of 2 */
+#define MAX_NUM_PROCESSES 8
+
 #endif

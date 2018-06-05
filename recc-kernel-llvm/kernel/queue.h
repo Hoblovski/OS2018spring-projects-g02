@@ -16,27 +16,11 @@
     under the License.
 */
 
-#ifndef CORE_DATA_TYPES_H
-#include "core_data_types.h"
-#endif
+#include "kernel_state.h"
 
-struct task_queue {
-	unsigned int start;
-	unsigned int end;
-	unsigned int current_count;
-	unsigned int size;
-	void * items[MAX_NUM_PROCESSES];
-};
+void ready_queue_push(struct task_queue* tq, struct process_control_block* proc);
 
-struct message_queue {
-	unsigned int start;
-	unsigned int end;
-	unsigned int current_count;
-	unsigned int size;
-	struct kernel_message items[MAX_NUM_PROCESSES];
-};
-
-void task_queue_init(struct task_queue *, unsigned int);
+void task_queue_init(struct task_queue *);
 
 void task_queue_push_end(struct task_queue *, void *);
 

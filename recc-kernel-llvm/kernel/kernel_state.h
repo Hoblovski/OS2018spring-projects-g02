@@ -16,35 +16,53 @@
     under the License.
 */
 
-#ifndef QUEUE_H_DEFINED_
-#include "queue.h"
-#endif
+#include "kernel_defs.h"
 
-#include "op-cpu.h"
+enum process_state {
+  BLOCKED_ON_SEND, BLOCKED_ON_RECEIVE, BLOCKED_ON_REPLY,
+  BLOCKED_ON_CLOCK_TICK, BLOCKED_ON_UART1_IN_READY, BLOCKED_ON_UART1_OUT_READY,
+  READY, ACTIVE, ZOMBIE
+};
 
-#define PID_INIT 0
-#define PID_USER_PROC_1 1
-#define PID_CLOCK_COUNTER 2
-#define PID_UART1_OUT_READY_NOTIFIER 3
-#define PID_UART1_OUT_SERVER 4
-#define PID_UART1_IN_READY_NOTIFIER 5
-#define PID_UART1_IN_SERVER 6
-#define PID_COMMAND_SERVER 7
+
+enum kernel_event {
+  CLOCK_TICK_EVENT, UART1_OUT_READY, UART1_IN_READY
+};
+
+
+enum kernel_message_type {
+  UART1_IN_READY_NOTIFY, UART1_OUT_READY_NOTIFY, CLOCK_TICK_NOTIFY,
+  MESSAGE_ACKNOWLEDGED, OUTPUT_CHARACTER
+};
+
 
 typedef unsigned pte_t;
 typedef unsigned pde_t;
-// TODO: rwx check
-#define PDE_FLAGS_P 1
-#define PTE_FLAGS_P 1
-#define PDSHIFT 21
-#define PTMASK 0x7FF
-#define PTSHIFT 10
-#define POFFSETMASK 0x3FF
-#define GET_PDIDX(addr) ((addr) >> PDSHIFT)
-#define GET_PTIDX(addr) (((addr) >> PTSHIFT) & PTMASK)
-#define GET_PN(addr) ((addr) & ~POFFSETMASK)
-#define GET_POFFSET(addr) ((addr) & POFFSETMASK)
-#define PA2KLA(addr) ((addr) + KSEG_BEGIN)
+
+
+struct kernel_message{
+	enum kernel_message_type message_type;
+	unsigned int data;
+	unsigned int source_id;
+};
+
+
+struct task_queue {
+	unsigned int start;
+	unsigned int end;
+	unsigned int current_count;
+	void * items[MAX_NUM_PROCESSES];
+};
+
+
+struct message_queue {
+	unsigned int start;
+	unsigned int end;
+	unsigned int current_count;
+	unsigned int size;
+	struct kernel_message items[MAX_NUM_PROCESSES];
+};
+
 
 /*
  * PCB:
@@ -59,6 +77,13 @@ struct process_control_block{
 	struct kernel_message * reply_message;
 	struct kernel_message * recieve_message;
 };
+
+
+struct page {
+  unsigned ref;
+  unsigned flags;
+};
+
 
 extern struct task_queue ready_queue_p0;
 extern struct task_queue ready_queue_p1;
@@ -81,15 +106,7 @@ extern unsigned int user_proc_5_stack[STACK_SIZE];
 extern unsigned int user_proc_6_stack[STACK_SIZE];
 extern unsigned int user_proc_7_stack[STACK_SIZE];
 
-struct page {
-  unsigned ref;   // TODO: make atomic
-  unsigned flags;
-};
-
 extern unsigned n_pages;
 extern unsigned n_kpages;
 extern struct page* pages;
-// this bit: is this page frame reserved for kernel, and can't be alloc'ed or freed?
-#define PF_KRESERVE 1
-
 #endif

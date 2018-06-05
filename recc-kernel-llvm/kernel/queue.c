@@ -14,22 +14,21 @@
     under the License.
 */
 #include "queue.h"
-#include "fatal.h"
+#include "private_kernel_interface.h"
 
-void task_queue_init(struct task_queue * queue, unsigned int size) {
+void task_queue_init(struct task_queue * queue) {
 	queue->start = 0;
 	queue->end = 0;
 	queue->current_count = 0;
-	queue->size = size;
 }
 
 void task_queue_push_end(struct task_queue * queue, void * item) {
-	if (((queue->end + 1) & 7) == queue->start) {
+	if (((queue->end + 1) & (MAX_NUM_PROCESSES-1)) == queue->start) {
     fatal(13); // Task queue is full.
 	}
 	
 	queue->items[queue->end] = item;
-	queue->end = ((queue->end + 1) & 7);
+	queue->end = ((queue->end + 1) & (MAX_NUM_PROCESSES-1));
 	queue->current_count += 1;
 }
 
@@ -42,7 +41,7 @@ void * task_queue_pop_start(struct task_queue * queue) {
 
 	item = queue->items[queue->start];
 
-	queue->start = ((queue->start + 1) & 7);
+	queue->start = ((queue->start + 1) & (MAX_NUM_PROCESSES-1));
 	queue->current_count -= 1;
 	return item;
 }
@@ -59,12 +58,12 @@ void message_queue_init(struct message_queue * queue, unsigned int size){
 }
 
 void message_queue_push_end(struct message_queue * queue, struct kernel_message item){
-	if (((queue->end + 1) & 7) == queue->start) {
+	if (((queue->end + 1) & (MAX_NUM_PROCESSES-1)) == queue->start) {
 		fatal(15); // Message queue is full.
 	}
 	
 	queue->items[queue->end] = item;
-	queue->end = ((queue->end + 1) & 7);
+	queue->end = ((queue->end + 1) & (MAX_NUM_PROCESSES-1));
 	queue->current_count += 1;
 }
 
@@ -77,7 +76,7 @@ struct kernel_message message_queue_pop_start(struct message_queue * queue){
 
 	item = queue->items[queue->start];
 
-	queue->start = ((queue->start + 1) & 7);
+	queue->start = ((queue->start + 1) & (MAX_NUM_PROCESSES-1));
 	queue->current_count -= 1;
 	return item;
 }

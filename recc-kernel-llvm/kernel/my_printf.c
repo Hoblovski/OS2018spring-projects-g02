@@ -1,8 +1,7 @@
 #include <stdarg.h>
+#include "private_kernel_interface.h"
 
 typedef char uchar;
-
-extern unsigned putchar_busy(unsigned);
 
 unsigned loadbyteu(const uchar* a)
 {

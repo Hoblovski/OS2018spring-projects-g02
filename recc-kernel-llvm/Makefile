@@ -10,7 +10,7 @@ SINCLUDE_DIR := include
 # 	then puts main and schedule_next_task both at 0x0
 # I've tried the input section  entry.o(.text),
 # 	but the linker does not know this command. (llvm 3.9's problem?)
-OBJS := entry kernel_impl kernel_state my_printf putchar queue user_proc\
+OBJS := entry kernel_impl kernel_state my_printf queue user_proc\
 	getchar_nobusy iehandling kernel_interface putchar_busy putchar_nobusy
 OBJS := $(addprefix ${BUILD_DIR}/, ${OBJS})
 OBJS := $(addsuffix .o, ${OBJS})

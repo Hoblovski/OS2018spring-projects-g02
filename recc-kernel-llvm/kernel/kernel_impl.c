@@ -15,8 +15,8 @@
 */
 #include "printf.h"
 #include "private_kernel_interface.h"
-#include "op-cpu.h"
-#include "fatal.h"
+#include "user_proc.h"
+#include "queue.h"
 
 unsigned int current_task_id = 0;
 unsigned int num_clock_ticks = 0;
@@ -258,7 +258,7 @@ void uart1_in_interrupt_enable(void){
 	or_into_flags_register(UART1_IN_ENABLE_BIT);
 }
 
-void page_fault_exception_interrupt_enable(void){
+void paging_enable(void){
 	or_into_flags_register(PAGEING_ENABLE_BIT);
 }
 
@@ -277,14 +277,14 @@ static void new_thread(unsigned int pid, unsigned int priority,
 }
 
 void stupid_proc_init(void){
-	task_queue_init(&ready_queue_p0, MAX_NUM_PROCESSES);
-	task_queue_init(&ready_queue_p1, MAX_NUM_PROCESSES);
-	task_queue_init(&ready_queue_p2, MAX_NUM_PROCESSES);
-	task_queue_init(&ready_queue, MAX_NUM_PROCESSES);
-	task_queue_init(&zombie_queue, MAX_NUM_PROCESSES);
-	task_queue_init(&blocked_on_clock_tick_queue, MAX_NUM_PROCESSES);
-	task_queue_init(&blocked_on_uart1_out_ready_queue, MAX_NUM_PROCESSES);
-	task_queue_init(&blocked_on_uart1_in_ready_queue, MAX_NUM_PROCESSES);
+	task_queue_init(&ready_queue_p0);
+	task_queue_init(&ready_queue_p1);
+	task_queue_init(&ready_queue_p2);
+	task_queue_init(&ready_queue);
+	task_queue_init(&zombie_queue);
+	task_queue_init(&blocked_on_clock_tick_queue);
+	task_queue_init(&blocked_on_uart1_out_ready_queue);
+	task_queue_init(&blocked_on_uart1_in_ready_queue);
 
   // task 0 will never be scheduled.
 	pcbs[0].state = ACTIVE; 
@@ -326,10 +326,6 @@ void mm_init(){
     pages[i].ref = 0;   // not used, can be alloc'ed
     pages[i].flags = 0;
   }
-  *(unsigned*) 0x10000 = 0xDEADBEEF;
-
-  or_into_flags_register(PAGEING_ENABLE_BIT);
-  // *(unsigned*) 0x10000 = 0xDEADBEEF;
 }
 
 // returns physical address
@@ -417,8 +413,7 @@ void k_kernel_init(void){
 	timer_interrupt_enable();
 	uart1_out_interrupt_enable();
 	uart1_in_interrupt_enable();
-
-  or_into_flags_register(PAGEING_ENABLE_BIT);
+  paging_enable();
 
 	schedule_next_task();
 }

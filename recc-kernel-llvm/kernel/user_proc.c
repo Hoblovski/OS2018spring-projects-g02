@@ -14,6 +14,27 @@
     under the License.
 */
 #include "user_proc.h"
+#include "printf.h"
+#include "private_kernel_interface.h"
+#include "public_kernel_interface.h"
+
+// should be used by user process
+// user should not do putchar_busy
+int putchar(int c){
+	struct kernel_message putchar_m;
+	struct kernel_message putchar_reply;
+	putchar_m.message_type = OUTPUT_CHARACTER;
+	putchar_m.data = c;
+	send_message(&putchar_m, PID_UART1_OUT_SERVER, &putchar_reply);
+	switch(putchar_reply.message_type){
+		case MESSAGE_ACKNOWLEDGED:{
+			break;
+		}default:{
+      fatal(1); // Unknown message type.
+    }
+  }
+  return 0;
+}
 
 void user_proc_1(void){
   unsigned entry = 1;

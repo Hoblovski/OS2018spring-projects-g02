@@ -16,15 +16,7 @@
     under the License.
 */
 
-#ifndef KERNEL_STATE_H_
 #include "kernel_state.h"
-#endif
-#ifndef QUEUE_H_DEFINED_
-#include "queue.h"
-#endif
-#ifndef USER_PROC_H_
-#include "user_proc.h"
-#endif
 
 void schedule_next_task(void);
 void save_current_task(struct task_queue *, enum process_state);
@@ -38,10 +30,13 @@ void or_into_flags_register(unsigned int);
 void deassert_bits_in_flags_register(unsigned int);
 unsigned int read_flags_register(void);
 void write_flags_register(unsigned);
+void fatal(unsigned errno); 
+
 void timer_interrupt_enable(void);
 void uart1_out_interrupt_enable(void);
 void uart1_in_interrupt_enable(void);
-void page_fault_exception_interrupt_enable(void);
+void paging_enable(void);
+
 unsigned int init_task_stack(unsigned int **, void (*)(void));
 unsigned int scheduler(void);
 unsigned int k_release_processor(void);
@@ -54,5 +49,9 @@ void k_block_on_event(enum kernel_event);
 void k_send_message(struct kernel_message *, unsigned int, struct kernel_message *);
 void k_receive_message(struct kernel_message *);
 void k_reply_message(struct kernel_message *, unsigned int);
+
+int putchar_nobusy(int);
+int getchar_nobusy(void);
+unsigned putchar_busy(unsigned);
 
 #endif

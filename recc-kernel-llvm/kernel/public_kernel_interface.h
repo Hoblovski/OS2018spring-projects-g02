@@ -16,12 +16,8 @@
     under the License.
 */
 
-#ifndef KERNEL_STATE_H_
 #include "kernel_state.h"
-#endif
-#ifndef QUEUE_H_DEFINED_
 #include "queue.h"
-#endif
 
 unsigned int release_processor(void);
 void task_exit(void);
