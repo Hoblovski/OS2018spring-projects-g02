@@ -2,17 +2,17 @@
 #define PRIVATE_KERNEL_INTERFACE_H_
 /*
     Copyright 2016 Robert Elder Software Inc.
-    
-    Licensed under the Apache License, Version 2.0 (the "License"); you may not 
-    use this file except in compliance with the License.  You may obtain a copy 
+
+    Licensed under the Apache License, Version 2.0 (the "License"); you may not
+    use this file except in compliance with the License.  You may obtain a copy
     of the License at
-    
+
         http://www.apache.org/licenses/LICENSE-2.0
-    
-    Unless required by applicable law or agreed to in writing, software 
-    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
-    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the 
-    License for the specific language governing permissions and limitations 
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+    License for the specific language governing permissions and limitations
     under the License.
 */
 
@@ -21,7 +21,7 @@
 void schedule_next_task(void);
 void save_current_task(struct task_queue *, enum process_state);
 void save_current_task_as_ready(void);
-void add_task_to_ready_queue(struct process_control_block *);
+void mark_task_ready(struct process_control_block *);
 
 void set_irq_handler(void (*)(void));
 void set_timer_period(unsigned int);
@@ -30,7 +30,7 @@ void or_into_flags_register(unsigned int);
 void deassert_bits_in_flags_register(unsigned int);
 unsigned int read_flags_register(void);
 void write_flags_register(unsigned);
-void fatal(unsigned errno); 
+void fatal(unsigned errno);
 
 void timer_interrupt_enable(void);
 void uart1_out_interrupt_enable(void);
@@ -53,5 +53,9 @@ void k_reply_message(struct kernel_message *, unsigned int);
 int putchar_nobusy(int);
 int getchar_nobusy(void);
 unsigned putchar_busy(unsigned);
+
+void save_context_to_kstack(void** kstack);
+void load_context_from_kstack(void** kstack);
+void use_pgdir(void* pgdir);
 
 #endif

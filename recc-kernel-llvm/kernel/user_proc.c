@@ -196,7 +196,7 @@ void command_server(void){
 						unsigned int i;
 						printf("\n");
 						for(i = 0; i < MAX_NUM_PROCESSES; i++){
-							printf("Task 0x%x SP: 0x%X\n", (unsigned)pcbs[i].pid, (unsigned int)pcbs[i].stack_pointer);
+							printf("Task 0x%x SP: 0x%X\n", (unsigned)pcbs[i].pid, (unsigned int)pcbs[i].ustack);
 						}
 						break;
 					}case 112:{/* letter 'p' */

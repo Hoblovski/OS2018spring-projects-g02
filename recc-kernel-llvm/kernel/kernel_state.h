@@ -2,17 +2,17 @@
 #define KERNEL_STATE_H_
 /*
     Copyright 2016 Robert Elder Software Inc.
-    
-    Licensed under the Apache License, Version 2.0 (the "License"); you may not 
-    use this file except in compliance with the License.  You may obtain a copy 
+
+    Licensed under the Apache License, Version 2.0 (the "License"); you may not
+    use this file except in compliance with the License.  You may obtain a copy
     of the License at
-    
+
         http://www.apache.org/licenses/LICENSE-2.0
-    
-    Unless required by applicable law or agreed to in writing, software 
-    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
-    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the 
-    License for the specific language governing permissions and limitations 
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+    License for the specific language governing permissions and limitations
     under the License.
 */
 
@@ -21,7 +21,8 @@
 enum process_state {
   BLOCKED_ON_SEND, BLOCKED_ON_RECEIVE, BLOCKED_ON_REPLY,
   BLOCKED_ON_CLOCK_TICK, BLOCKED_ON_UART1_IN_READY, BLOCKED_ON_UART1_OUT_READY,
-  READY, ACTIVE, ZOMBIE
+  READY, ACTIVE, ZOMBIE,
+  NOT_ALLOCATED, NOT_INITIALIZED,
 };
 
 
@@ -69,8 +70,10 @@ struct message_queue {
  *  PCB->priority is divided into 4 classes, from 0(highest) to >3(lowest).
  */
 struct process_control_block{
+	void* ustack;
+  void* kstack;
+  void* pgdir;
 	enum process_state state;
-	unsigned int * stack_pointer;
 	unsigned int pid;
 	unsigned int priority;
 	struct message_queue messages;
@@ -98,6 +101,8 @@ extern unsigned int * g_kernel_sp;
 extern unsigned int * g_current_sp;
 extern unsigned int kernel_stack[STACK_SIZE];
 extern struct process_control_block pcbs[MAX_NUM_PROCESSES];
+extern struct process_control_block* cur_proc;
+extern struct process_control_block* idle_proc;
 extern unsigned int user_proc_1_stack[STACK_SIZE];
 extern unsigned int user_proc_2_stack[STACK_SIZE];
 extern unsigned int user_proc_3_stack[STACK_SIZE];

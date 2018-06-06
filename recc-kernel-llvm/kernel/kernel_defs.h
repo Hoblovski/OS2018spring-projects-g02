@@ -2,19 +2,20 @@
 #define OP_CPU_H_
 /*
     Copyright 2016 Robert Elder Software Inc.
-    
-    Licensed under the Apache License, Version 2.0 (the "License"); you may not 
-    use this file except in compliance with the License.  You may obtain a copy 
+
+    Licensed under the Apache License, Version 2.0 (the "License"); you may not
+    use this file except in compliance with the License.  You may obtain a copy
     of the License at
-    
+
         http://www.apache.org/licenses/LICENSE-2.0
-    
-    Unless required by applicable law or agreed to in writing, software 
-    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
-    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the 
-    License for the specific language governing permissions and limitations 
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+    License for the specific language governing permissions and limitations
     under the License.
 */
+#define NULL (0)
 
 #define PAGE_SIZE_WIDTH 10
 #define PAGE_TABLE_SIZE_WIDTH 11
@@ -29,6 +30,9 @@
 #define UART1_IN         0xffff0010u
 #define IRQ_HANDLER      0xffff0020u
 #define TIMER_PERIOD     0xffff0030u
+#define PD_POINTER 0xffff0040
+#define PAGEFAULT_BADVA 0xffff0050
+#define EFLAGS 0xffff0060
 
 #define HALTED_BIT                          (1u << 0u)
 #define GLOBAL_INTERRUPT_ENABLE_BIT         (1u << 1u)
@@ -52,6 +56,9 @@
 #define USEG_BEGIN 0
 #define KSEG_BEGIN 0xc0000000
 #define PSEG_BEGIN 0xffff0000
+// XXX crazy hack: liner can't provide an `_end` symbol
+//  so do it myself
+#define IMAGE_END (KSEG_BEGIN + 0x10000)
 
 // TODO: rwx check
 #define PDE_FLAGS_P 1

@@ -48,3 +48,6 @@ unsigned int user_proc_7_stack[STACK_SIZE];
 struct page* pages;
 unsigned n_pages;
 unsigned n_kpages;
+
+struct process_control_block* cur_proc;
+struct process_control_block* idle_proc;

@@ -148,3 +148,73 @@ fatal:
 $fatal_end:
 	.size	fatal, ($fatal_end)-fatal
 
+
+##############################################################################
+	.globl	switch_kstack
+	.p2align	2
+	.type	switch_kstack,@function
+	.ent	switch_kstack
+switch_kstack:
+	.set	noreorder
+	.set	nomacro
+
+  sto $sp, 0($a1)
+
+  sto $v0, -4($sp)
+  sto $v1, -8($sp)
+  sto $a0, -12($sp)
+  sto $a1, -16($sp)
+  sto $s0, -20($sp)
+  sto $s1, -24($sp)
+  sto $t0, -28($sp)
+  sto $t1, -32($sp)
+  sto $t2, -36($sp)
+  sto $fp, -40($sp)
+  sto $lr, -44($sp)
+
+  loa $sp, 0($a0)
+
+  loa $v0, -4($sp)
+  loa $v1, -8($sp)
+  loa $a0, -12($sp)
+  loa $a1, -16($sp)
+  loa $s0, -20($sp)
+  loa $s1, -24($sp)
+  loa $t0, -28($sp)
+  loa $t1, -32($sp)
+  loa $t2, -36($sp)
+  loa $fp, -40($sp)
+  loa $lr, -44($sp)
+
+  ret $lr
+
+	.set	macro
+	.set	reorder
+	.end	switch_kstack
+$switch_kstack_end:
+	.size	switch_kstack, ($switch_kstack_end)-switch_kstack
+
+
+##############################################################################
+	.globl	use_pgdir
+	.p2align	2
+	.type	use_pgdir,@function
+	.ent	use_pgdir                    # @use_pgdir
+use_pgdir:
+	.set	noreorder
+	.set	nomacro
+
+  # t0 is caller save so safe to use
+  lui $t0, 0xFFFF
+  ori $t0, $t0, 0x0040
+  sto $a0, 0($t0)
+  ret $lr
+
+	.set	macro
+	.set	reorder
+	.end	use_pgdir
+$use_pgdir_end:
+	.size	use_pgdir, ($use_pgdir_end)-use_pgdir
+
+
+##############################################################################
