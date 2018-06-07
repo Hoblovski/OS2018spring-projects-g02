@@ -75,8 +75,7 @@
 // this bit: is this page frame reserved for kernel, and can't be alloc'ed or freed?
 #define PF_KRESERVE 1
 
-#define STACK_SIZE 256
-#define INIT_STACK_SIZE 256
+#define STACK_SIZE 1024
 
 /* ensure that MAX_NUM_PROCESSES is an exponent of 2 */
 #define MAX_NUM_PROCESSES 8

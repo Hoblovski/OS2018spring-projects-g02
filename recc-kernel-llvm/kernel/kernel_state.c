@@ -33,7 +33,7 @@ unsigned int* g_kernel_sp;
 
 struct process_control_block pcbs[MAX_NUM_PROCESSES];
 
-unsigned int init_stack[INIT_STACK_SIZE];
+unsigned int init_stack[STACK_SIZE];
 
 unsigned int kernel_stack[STACK_SIZE];
 

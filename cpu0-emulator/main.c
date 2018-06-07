@@ -84,7 +84,6 @@ void cpu_run(machine_t* m, unsigned n_cycles)
     uint32_t inst = mem_lw(m, mmu_la2pa(m, m->regs[REG_PC], &isport, 1));
     assert(!isport && "executing into port area!");
     exec_inst(m, inst);
-    fflush(stdout);
   }
 
   sleep(1);

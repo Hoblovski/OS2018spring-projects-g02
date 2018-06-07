@@ -9,17 +9,10 @@ main:
 	.set	nomacro
 # BB#0:
 
-	lui	$v0, %hi(g_kernel_sp)
-	ori	$v0, $v0, %lo(g_kernel_sp)
-	lui	$v1, %hi(kernel_stack)
-	ori	$v1, $v1, %lo(kernel_stack)
-	addiu	$v1, $v1, 4092
-	sto	$v1, 0($v0)
-	# g_kernel_sp = &(kernel_stack[STACK_SIZE-1])
-
 	lui	$sp, %hi(init_stack)
 	ori	$sp, $sp, %lo(init_stack)
-	addiu $sp, $sp, 1020
+  # TODO: stupid hack, use a macro?
+	addiu $sp, $sp, 4092
 	# using init stack
 
 	lui	$t0, %hi(kernel_init)

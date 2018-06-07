@@ -23,6 +23,8 @@ void save_current_task(struct task_queue *, enum process_state);
 void save_current_task_as_ready(void);
 void mark_task_ready(struct process_control_block *);
 
+void sched(void);
+
 void set_irq_handler(void (*)(void));
 void set_timer_period(unsigned int);
 void set_level_2_page_pointer(unsigned int *);
@@ -38,8 +40,8 @@ void uart1_in_interrupt_enable(void);
 void paging_enable(void);
 
 unsigned int init_task_stack(unsigned int **, void (*)(void));
-unsigned int scheduler(void);
-unsigned int k_release_processor(void);
+void scheduler(void);
+void k_release_processor(void);
 void k_task_exit(void);
 void k_kernel_exit(void);
 void k_kernel_init(void);

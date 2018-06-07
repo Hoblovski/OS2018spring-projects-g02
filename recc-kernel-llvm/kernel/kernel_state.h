@@ -19,10 +19,17 @@
 #include "kernel_defs.h"
 
 enum process_state {
-  BLOCKED_ON_SEND, BLOCKED_ON_RECEIVE, BLOCKED_ON_REPLY,
-  BLOCKED_ON_CLOCK_TICK, BLOCKED_ON_UART1_IN_READY, BLOCKED_ON_UART1_OUT_READY,
-  READY, ACTIVE, ZOMBIE,
-  NOT_ALLOCATED, NOT_INITIALIZED,
+  BLOCKED_ON_SEND            = 1,
+  BLOCKED_ON_RECEIVE         = 2,
+  BLOCKED_ON_REPLY           = 3,
+  BLOCKED_ON_CLOCK_TICK      = 4,
+  BLOCKED_ON_UART1_IN_READY  = 5,
+  BLOCKED_ON_UART1_OUT_READY = 6,
+  READY                      = 7,
+  ACTIVE                     = 8,
+  ZOMBIE                     = 9,
+  NOT_ALLOCATED              = 10,
+  NOT_INITIALIZED            = 11,
 };
 
 
@@ -70,9 +77,9 @@ struct message_queue {
  *  PCB->priority is divided into 4 classes, from 0(highest) to >3(lowest).
  */
 struct process_control_block{
-	void* ustack;
-  void* kstack;
-  void* pgdir;
+	void* ustack; // 0  might be actually not user stack, just misnomer
+  void* kstack; // 4
+  void* pgdir; // 8
 	enum process_state state;
 	unsigned int pid;
 	unsigned int priority;
@@ -110,6 +117,7 @@ extern unsigned int user_proc_4_stack[STACK_SIZE];
 extern unsigned int user_proc_5_stack[STACK_SIZE];
 extern unsigned int user_proc_6_stack[STACK_SIZE];
 extern unsigned int user_proc_7_stack[STACK_SIZE];
+extern unsigned int init_stack[STACK_SIZE];
 
 extern unsigned n_pages;
 extern unsigned n_kpages;

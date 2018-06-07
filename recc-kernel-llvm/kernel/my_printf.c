@@ -21,7 +21,7 @@ void put_hex_uart(unsigned v, unsigned bigletter)
     d2h = dig2hexbig;
   else
     d2h = dig2hex;
-  if (!v) {
+  if (v == 0) {
     putchar_busy('0');
     return;
   }

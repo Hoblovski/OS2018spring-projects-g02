@@ -9,6 +9,8 @@
 
 uint32_t excep = 0;
 
+uint32_t n_timint = 0;
+
 void machine_init(machine_t* m)
 {
   memset(m, 0, sizeof(*m));
@@ -71,6 +73,13 @@ char* instrname[] = {
   "blt", "addiu", "lui", "BAD",
   "ori", "lb", "sb", "bne",
   "jr", "jalr", "jsub"
+};
+
+char* regname[] = {
+  "pc", "sp", "fp", "zr", "fr", "wr",
+  "at", "lr", "gp", "v0", "v1", "a0",
+  "a1", "s0", "s1", "t0", "t1", "t2",
+  "epc"
 };
 
 #ifdef INSTR_WATCH
@@ -148,26 +157,34 @@ void exec_inst(machine_t* m, uint32_t inst)
   uint32_t la, pa, isport;
 
 #ifdef INSTR_WATCH
-  switch (instr_type(opcode)) {
-    case INSTR_TYPE_R:
-      Printf("* [%08X]{%08X} [%-10d] [%6s] opcode=%d, rx=%d, ry=%d, rz=%d\n",
-          m->regs[REG_PC], inst, m->cycno, instrname[opcode], opcode, rx, ry, rz);
-      break;
-    case INSTR_TYPE_I:
-      if (opcode == OPCODE_BEQ && rx == REG_ZR && ry == REG_ZR && immsext == -4)
-        break; // don't print spin instructions
-      Printf("* [%08X]{%08X} [%-10d] [%6s] opcode=%d, rx=%d, ry=%d, imm=%d (unsigned=%d)\n",
-          m->regs[REG_PC], inst, m->cycno, instrname[opcode], opcode, rx, ry, immsext, imm);
-      break;
-    case INSTR_TYPE_J:
-      Printf("* [%08X]{%08X} [%-10d] [%6s] opcode=%d, imm=%d (hex=%08X)\n",
-          m->regs[REG_PC], inst, m->cycno, instrname[opcode], opcode, imm26sext, imm26sext);
-      break;
-    default:
-      assert(0 && "bad instr type");
+#ifdef INSTR_WATCH_START_FROM_FIRST_TIMERINT
+  if (n_timint > 0) {
+#endif
+    switch (instr_type(opcode)) {
+      case INSTR_TYPE_R:
+        Printf("* [%08X]{%08X} [%-6d] %-6s $%-4s $%-4s $%-4s\n",
+            m->regs[REG_PC], inst, m->cycno, instrname[opcode],
+            regname[rx], regname[ry], regname[rz]);
+        break;
+      case INSTR_TYPE_I:
+        Printf("* [%08X]{%08X} [%-6d] %-6s $%-4s $%-4s %d (u%d)\n",
+            m->regs[REG_PC], inst, m->cycno, instrname[opcode],
+            regname[rx], regname[ry], immsext, imm);
+        break;
+      case INSTR_TYPE_J:
+        Printf("* [%08X]{%08X} [%-6d] %-6s %d (h%08X)\n",
+            m->regs[REG_PC], inst, m->cycno, instrname[opcode],
+            imm26sext, imm26sext);
+        break;
+      default:
+        assert(0 && "bad instr type");
+    }
+    fflush(stdout);
+    Printf("sp=%08X\n", m->regs[REG_SP]);
+#ifdef INSTR_WATCH_START_FROM_FIRST_TIMERINT
   }
 #endif
-  fflush(stdout);
+#endif
 
   int err = 0;
   switch (opcode) {
@@ -203,6 +220,14 @@ void exec_inst(machine_t* m, uint32_t inst)
       break;
     case OPCODE_ST:
       la = m->regs[ry] + immsext;
+//    TODO: add check similar as below, when the kernel image can not have
+//      protection modes
+//
+//      if (0xC0000000 <= la && la < 0xc0002174) {
+//        Printf("\n>>> PC=%08X la=%08X val=%08X writing to .text or .rodata!\n",
+//            m->regs[REG_PC], la, m->regs[rx]);
+//        assert(0);
+//      }
       pa = mmu_la2pa(m, la, &isport, 1);
       if (isport)
         port_sw(m, pa, m->regs[rx]);
@@ -255,12 +280,13 @@ void exec_inst(machine_t* m, uint32_t inst)
       m->regs[REG_PC] += imm26sext;
       break;
     default:
+      printf("[%08X]{%08X}: bad opcode %d\n", m->regs[REG_PC], inst, opcode);
       assert(0 && "bad opcode!");
       break;
   }
 
-  m->cycno++;
   uint32_t timer_period = port_lw(m, mmu_la2pa(m, TIMER_PERIOD, NULL, 0));
+  m->cycno++;
   if (timer_period != 0 && m->cycno % timer_period == 0) {
     m->regs[REG_FR] |= FRBIT_CLK;
     m->cycno = 0;
@@ -307,8 +333,9 @@ void check_excep(machine_t* m)
   unsigned regfr = m->regs[REG_FR];
 
   if ((regfr & FRBIT_CLKEN) && (regfr & FRBIT_CLK)) {
+    n_timint++;
 #ifdef EXCEP_WATCH
-    Printf("@ [%08X] clk\n", m->regs[REG_PC]);
+    Printf("@ [%08X] clk #%d\n", m->regs[REG_PC], n_timint);
     dump_fr(m);
     Printf("\n");
 #endif

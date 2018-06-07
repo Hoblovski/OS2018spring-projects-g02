@@ -386,25 +386,12 @@ do_kernel_method:
   addiu $t0, $zr, -3  # -3 = ~2
   and $fr, $fr, $t0   # 关中断
 
-  add $t2, $sp, $zr   # current 栈 SP 保存在 t2 中, 用于复制参数
 # 保存 current 栈
 # 注意, 当我们返回到 current 栈是希望栈顶就是返回地址
-  addiu $t1, $a0, 0
-  add $t1, $t1, $t1
-  add $t1, $t1, $t1
-  addiu $t1, $t1, 4   # t1 = 4 + 4 * nargs : 参数占用的空间大小
-  add $t1, $sp, $t1   # 返回时, 直接跳过这些参数
-  lui	$t0, %hi(g_current_sp)
-  ori	$t0, $t0, %lo(g_current_sp)
-  sto $t1, 0($t0)
+  # TODO
 # 切换到系统栈
-  lui	$t0, %hi(g_kernel_sp)
-  ori	$t0, $t0, %lo(g_kernel_sp)
-  loa $sp, 0($t0)
+  # TODO
 
-# 复制参数到系统栈
-  add $t0, $a0, $zr   # 保存, 因为 a0, a1 即将被用于保存系统函数的参数
-  add $t1, $a1, $zr
 # 现在 current 栈的情况
 #     |           |   高地址
 #     +-----------+
@@ -421,15 +408,8 @@ do_kernel_method:
 # XXX: 现在不支持超过三个参数的系统函数!
 #
 #   $t2: current 栈, $sp: kernel 栈
-  addiu $sp, $sp, -12
-  addiu $a0, $zr, 3
-  blt $t0, $a0, $lbl3
-  loa $a0, 12($t2)
-  sto $a0, 8($sp)
-$lbl3:
-  loa $a0, 4($t2)
-  loa $a1, 8($t2)
-  jalr $t1
+  # TODO
+  jalr $a1
 
 # ...
 # 从具体的系统函数返回
@@ -444,9 +424,10 @@ $lbl3:
 # 不用恢复内核栈的 sp: 内核栈的 g_kernel_sp 是只读的
 # 切换回到 current 栈
 
-  lui	$t0, %hi(g_current_sp)
-  ori	$t0, $t0, %lo(g_current_sp)
-  loa $sp, 0($t0)
+  # now never here (no kernel method except kernel_init)
+  addiu $a0, $zr, -1
+  addiu $fr, $fr, 1
+  # TODO
   beq $zr, $zr, do_eret
 
 ##############################################################################
@@ -464,7 +445,9 @@ irq_handler:
 	.set	noreorder
 	.set	nomacro
 
-# epc 被保存到用户栈上
+# epc 被保存到当前栈上.
+# 虽然后面把当前 $sp 保存到 cur_proc->ustack,
+# 但是这不意味当前栈一定是用户栈, 当前栈仍然可能是内核栈
   addiu $sp, $sp, -4
   sto $epc, 0($sp)
 
@@ -483,12 +466,12 @@ irq_handler:
   sto $lr, 40($sp)
 
 # 切换到 kernel 栈
-  lui	$t0, %hi(g_current_sp)
-  ori	$t0, $t0, %lo(g_current_sp)
-  sto $sp, 0($t0)                 # 保存 SP 到全局变量里
-  lui	$t0, %hi(g_kernel_sp)
-  ori	$t0, $t0, %lo(g_kernel_sp)
-  loa $sp, 0($t0)                 # 切换到内核栈
+# 注意, 这里和 process_control_block 的 layout 有关!
+  lui	$t0, %hi(cur_proc)
+  ori	$t0, $t0, %lo(cur_proc)
+  loa $t0, 0($t0)   # t0 -> cur_proc
+  sto $sp, 0($t0)   # cur_proc->ustack = $sp
+  loa $sp, 4($t0)   # $sp = cur_proc->kstack
 
 # 跳转到服务例程
   lui	$t0, %hi(k_irq_handler)
@@ -499,9 +482,10 @@ irq_handler:
 # 从服务例程返回回来
 
 # 切换到应用栈
-  lui	$t0, %hi(g_current_sp)
-  ori	$t0, $t0, %lo(g_current_sp)
-  loa $sp, 0($t0)
+  lui	$t0, %hi(cur_proc)
+  ori	$t0, $t0, %lo(cur_proc)
+  loa $t0, 0($t0)
+  loa $sp, 0($t0)   # $sp = cur_proc->ustack
   beq $zr, $zr, do_eret
 
 do_eret:

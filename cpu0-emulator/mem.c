@@ -101,6 +101,10 @@ uint32_t mem_lw(machine_t* m, uint32_t pa)
     printf("pc=%08X, bad pa=%08X\n", m->regs[REG_PC], pa);
     assert(0);
   }
+  if (pa & 3) {
+    Printf("instruction at [%08X] triggers unaligned load word at %08X!\n", m->regs[REG_PC], pa);
+    assert(0);
+  }
   return *(uint32_t*) &(m->mem[pa]);
 }
 
@@ -110,6 +114,10 @@ void mem_sw(machine_t* m, uint32_t pa, uint32_t v)
   if (pa+3 >= MEMSZ_BYTES) {
     printf("out of range memory write\n");
     printf("pc=%08X, bad pa=%08X\n", m->regs[REG_PC], pa);
+    assert(0);
+  }
+  if (pa & 3) {
+    Printf("instruction at [%08X] triggers unaligned store word to %08X with value %08X!\n", m->regs[REG_PC], pa, v);
     assert(0);
   }
   *(uint32_t*) &(m->mem[pa]) = v;
@@ -123,6 +131,10 @@ uint32_t port_lw(machine_t* m, uint32_t port_addr)
     printf("pc=%08X, bad port_addr=%08X\n", m->regs[REG_PC], port_addr);
     assert(0);
   }
+  if (port_addr & 3) {
+    Printf("instruction at [%08X] triggers unaligned load word at port %08X!\n", m->regs[REG_PC], port_addr);
+    assert(0);
+  }
   return *(uint32_t*) &(m->port[port_addr]);
 }
 
@@ -132,6 +144,11 @@ void port_sw(machine_t* m, uint32_t port_addr, uint32_t v)
   if (port_addr+3 >= MEMSZ_BYTES) {
     printf("out of range port write\n");
     printf("pc=%08X, bad port_addr=%08X\n", m->regs[REG_PC], port_addr);
+    assert(0);
+  }
+  if (port_addr & 3) {
+    Printf("instruction at [%08X] triggers unaligned store word at port %08X with value %08X!\n",
+        m->regs[REG_PC], port_addr, v);
     assert(0);
   }
 #ifdef WATCH_UART_OUT_DIRECT
