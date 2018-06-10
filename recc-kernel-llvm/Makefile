@@ -19,7 +19,7 @@ OBJS := $(addsuffix .o, ${OBJS})
 LLVM_BUILD_DIR := ../llvm-3.9.0.src/build/bin
 LD             := ${LLVM_BUILD_DIR}/ld.lld
 LD_FLAGS       := -T script.ld -e main -o a.out
-CLANG          := clang # use system clang, we don't use custom frontend
+CLANG          := clang-3.9 # use system clang, we don't use custom frontend
 CLANG_FLAGS    := -target mips-unknown-linux-gnu -O0 -emit-llvm -isystem${SINCLUDE_DIR} -nostdinc
 LLC            := ${LLVM_BUILD_DIR}/llc
 LLC_FLAGS      := -march=cpu0el -relocation-model=static
