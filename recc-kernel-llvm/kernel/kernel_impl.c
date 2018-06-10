@@ -25,34 +25,56 @@ unsigned int saved_uart1_in_ready = 0;
 
 unsigned alloc_page();
 
+static void memset(unsigned* ptr, unsigned val, unsigned len){
+  for (unsigned* i = ptr; i < ptr + len; i++)
+    *i = 0;
+}
+
+static void memcpy(unsigned* dst, unsigned* src, unsigned len){
+  while (len-- != 0)
+    *(dst++) = *(src++);
+}
+
+static struct process_control_block* 
+select_task(enum process_state state)
+{
+  struct process_control_block * task = NULL;
+  unsigned min_priority = ~0u;
+  // stupid selector
+  for (unsigned i = 0; i < MAX_NUM_PROCESSES; i++)
+    if (pcbs[i].state == state && pcbs[i].priority < min_priority) {
+      task = &(pcbs[i]);
+      min_priority = pcbs[i].priority;
+    }
+  return task;
+}
+
 void unblock_tasks_for_event(enum kernel_event event){
-  fatal(30);
 	switch (event){
 		case CLOCK_TICK_EVENT:{
-			struct process_control_block * unblocked_task = NULL;
-      unsigned min_priority = ~0u;
-      // stupid selector
-      for (unsigned i = 0; i < MAX_NUM_PROCESSES; i++)
-        if (pcbs[i].state == BLOCKED_ON_CLOCK_TICK 
-            && pcbs[i].priority < min_priority) {
-          unblocked_task = &(pcbs[i]);
-          min_priority = pcbs[i].priority;
-        }
+      struct process_control_block* unblocked_task = select_task(
+          BLOCKED_ON_CLOCK_TICK);
       if (unblocked_task != NULL)
         mark_task_ready(unblocked_task);
 			break;
 		}case UART1_OUT_READY:{
-      // TODO: have a process listening for uart out
-      fatal(9);
+      struct process_control_block* unblocked_task = select_task(
+          BLOCKED_ON_UART1_OUT_READY);
+      if (unblocked_task != NULL)
+        mark_task_ready(unblocked_task);
+      break;
 		}case UART1_IN_READY:{
-      // TODO: save as above
-      fatal(10);
+      struct process_control_block* unblocked_task = select_task(
+          BLOCKED_ON_UART1_IN_READY);
+      if (unblocked_task != NULL)
+        mark_task_ready(unblocked_task);
+      break;
 		}default:{
-      fatal(11); // Unhandled unblock event.
+      fatal(11); // bad event
 			break;
 		}
 	}
-  // originally a sched here but I delete that
+  // a sched() can be here
 }
 
 void mark_task_ready(struct process_control_block * pcb){
@@ -74,8 +96,16 @@ void scheduler(void){
   fatal(22);
 }
 
+void clean_mm(struct process_control_block* pcb){
+  // TODO: free pages
+}
+
 void k_task_exit(void){
-  fatal(23);
+  if (cur_proc == idle_proc)
+    fatal(40); // idle_proc can't exit
+  clean_mm(cur_proc);
+  cur_proc->state = NOT_ALLOCATED;
+  sched();
 }
 
 void k_release_processor(void){
@@ -107,11 +137,11 @@ void k_irq_handler(void){
     // TODO
 		// unblock_tasks_for_event(UART1_IN_READY);
 	}else if((ass = flags_register & TIMER1_ASSERTED_BIT)){
-    printf_direct("tm %x\n", num_clock_ticks);
+    printf_direct("tick %x\n", num_clock_ticks);
 		deassert_bits_in_flags_register(TIMER1_ASSERTED_BIT);
 		num_clock_ticks++;
     // TODO
-		// unblock_tasks_for_event(CLOCK_TICK_EVENT);
+		unblock_tasks_for_event(CLOCK_TICK_EVENT);
     sched();
 	}else{
 		/*  Something really bad happend. */
@@ -166,6 +196,8 @@ void mm_init(){
 
 // returns physical address
 //  kernel is able to directly access physical address
+//
+// stupid slow algorithm
 unsigned alloc_page(){
   for (int i = n_kpages; i < n_pages; i++)
     if (pages[i].ref == 0) {
@@ -176,11 +208,7 @@ unsigned alloc_page(){
       }
       write_flags_register(fr);
       // zero alloc'ed page
-      // XXX: move this code out
-      unsigned* page_beg = (unsigned*) 0xC0000000 + (i << PTSHIFT);
-      unsigned* page_end = (unsigned*) 0xC0000000 + ((i+1) << PTSHIFT);
-      for (unsigned* j = page_beg; j < page_end; j++)
-        *j = 0;
+      memset(PA2KLA((unsigned*) (i<<PTSHIFT)), 0, (1<<(PTSHIFT-2)));
       return (i<<PAGE_SIZE_WIDTH);
     }
   fatal(17); // out of memory
@@ -265,16 +293,26 @@ void stupid_proc_init(void){
   for (unsigned i = 0; i < MAX_NUM_PROCESSES; i++)
     pcbs[i].state = NOT_ALLOCATED;
 
-  // the first user process can't be created by fork
+  // the first thread can't be created by fork
   idle_proc = alloc_proc();
   idle_proc->pgdir = 0; // idle will never use useg
-  idle_proc->kstack = (void*) ((unsigned) init_stack + STACK_SIZE - 4); // 1 page is enough
+  idle_proc->kstack = (void*) ((unsigned) init_stack + (1<<PAGE_SIZE_WIDTH) - 4);
   idle_proc->ustack = 0; // idle will never goto user mode
   idle_proc->state = ACTIVE; // idle is right running
   if (idle_proc->pid != 0) fatal(21);
   idle_proc->priority = ~0u - 1; // least priority
   // idle will never send / recv messages
   cur_proc = idle_proc;
+
+  // the first user process can't be created by fork
+  struct process_control_block* stupid_proc = alloc_proc();
+  stupid_proc->pgdir = 0; // stupid will never use useg
+  stupid_proc->kstack = (void*) PA2KLA((unsigned) alloc_page()) + (1<<PAGE_SIZE_WIDTH) - 4;
+  stupid_proc->ustack = 0; // stupid will never goto user mode
+  stupid_proc->state = BLOCKED_ON_CLOCK_TICK; // stupid is right running
+  stupid_proc->priority = ~0u - 2; // least priority
+  // stupid will never send / recv messages
+  init_kstack(&(stupid_proc->kstack), user_proc_1);
 }
 
 void sched(void)
@@ -293,25 +331,14 @@ void sched(void)
         next_proc = &(pcbs[i]);
       }
     //
-    // context switch
-    // only for single thread idle
-    if (next_proc != cur_proc) {
-      printf_direct("wtf? nextid %x curid %x\n", next_proc->pid,
-          cur_proc->pid);
+    if (cur_proc->pid != next_proc->pid)
+      printf_direct("sched %x -> %x\n", cur_proc->pid, next_proc->pid);
+    if (cur_proc != next_proc) {
+      use_pgdir(next_proc->pgdir);
+      struct process_control_block* old_proc = cur_proc;
+      cur_proc = next_proc;
+      switch_kstack(&(next_proc->kstack), &(old_proc->kstack));
     }
-//    printf_direct(".. %X %X ..\n", next_proc, cur_proc);
-//    printf_direct(":: %X %X %X %X ::\n",
-//        &(next_proc->kstack), &(cur_proc->kstack),
-//        next_proc->kstack, cur_proc->kstack);
-//    printf_direct("...\n");
-    // below is important. without the if, if cur_proc==next_proc
-    //  then we end up stupidly updating cur_proc
-    //
-    //  bug cause: stack overflow
-    if (cur_proc != next_proc)
-      switch_kstack(&(next_proc->kstack), &(cur_proc->kstack));
-    use_pgdir(next_proc->pgdir);
-    cur_proc = next_proc;
   }
   write_flags_register(fr);
 }
@@ -333,7 +360,10 @@ void k_kernel_init(void){
   // finished, idle process keeps trying to scheduling to other tasks
   printf_direct("Hello world\n");
   while (1) {
+    if (cur_proc->pid == 1) {
+      printf_direct("stupid running\n");
+      cur_proc->state = BLOCKED_ON_CLOCK_TICK;
+    }
     sched();
-    // schedule_next_task();
   }
 }

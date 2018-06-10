@@ -73,14 +73,14 @@ uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport,
     // TODO: probably refactor here, to mimic hw behaviour
     pde_t* pd = (pde_t*) port_lw(m, mmu_la2pa(m, PD_POINTER, NULL, 0));
     if ((uint32_t) pd < KSEG_BEGIN) {
-      Printf("pagedir [%08X] in user space! (useg addr %08X)\n", (uint32_t) pd, la);
+      Printf("[%08X] pagedir %08X in user space, bad useg addr %08X\n", m->regs[REG_PC], (uint32_t) pd, la);
       assert(0);
     }
     pde_t pde = mem_lw(m, mmu_la2pa(m, (uint32_t) (pd + GET_PDIDX(la)), NULL, 0));
     assert((pde & PDE_FLAGS_P) && "bad memory access: page table not present, pagefault not implemented\n");
     pte_t* pt = (pte_t*) GET_PN(pde);
     if ((uint32_t) pt < KSEG_BEGIN) {
-      Printf("pagetable [%08X] in user space! (useg addr %08X)\n", (uint32_t) pt, la);
+      Printf("[%08X] pagetable %08X in user space, bad useg addr %08X\n", m->regs[REG_PC], (uint32_t) pt, la);
       assert(0);
     }
     pte_t pte = mem_lw(m, mmu_la2pa(m, (uint32_t) (pt + GET_PTIDX(la)), NULL, 0));

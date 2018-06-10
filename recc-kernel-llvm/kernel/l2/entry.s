@@ -21,11 +21,31 @@ main:
 
 	# never here, raise errno -1
 	addiu $a0, $zr, -1
-	addiu $t0, $zr, 1
-	or $fr, $fr, $t0
+  addiu $fr, $fr, 1
+
 	.set	macro
 	.set	reorder
 	.end	main
 $func_end0:
 	.size	main, ($func_end0)-main
+
+
+	.globl	kernel_init
+	.p2align	2
+	.type	kernel_init,@function
+	.ent	kernel_init                    # @taskexit
+kernel_init:
+	.set	noreorder
+	.set	nomacro
+
+	lui	$t0, %hi(k_kernel_init)
+	ori	$t0, $t0, %lo(k_kernel_init)
+  jr $t0
+
+	.set	macro
+	.set	reorder
+	.end	kernel_init
+$kernel_init_end:
+	.size	kernel_init, ($kernel_init_end)-kernel_init
+
 

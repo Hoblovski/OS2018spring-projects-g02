@@ -6,7 +6,7 @@
 
 #define PERM_CHECK
 
-#define EXCEP_WATCH
+#undef EXCEP_WATCH
 
 #define WATCH_UART_OUT_DIRECT
 

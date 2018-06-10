@@ -218,3 +218,38 @@ $use_pgdir_end:
 
 
 ##############################################################################
+	.globl	init_kstack
+	.p2align	2
+	.type	init_kstack,@function
+	.ent	init_kstack
+init_kstack:
+	.set	noreorder
+	.set	nomacro
+
+  loa $t0, 0($a0)
+
+  sto $zr, -4($t0)    # v0
+  sto $zr, -8($t0)    # v1
+  sto $a1, -12($t0)   # a0    = pc_init
+  sto $zr, -16($t0)   # a1
+  sto $zr, -20($t0)   # s0
+  sto $zr, -24($t0)   # s1
+  sto $zr, -28($t0)   # t0
+  sto $zr, -32($t0)   # t1
+  sto $zr, -36($t0)   # t2
+  sto $zr, -40($t0)   # fp
+  lui $t1, %hi(proc_start)
+  ori $t1, $t1, %lo(proc_start)
+  sto $t1, -44($t0)   # lr    = proc_start
+
+  # don't modify, see switch_kstack
+  sto $t0, 0($a0)
+
+  ret $lr
+
+	.set	macro
+	.set	reorder
+	.end	init_kstack
+$init_kstack_end:
+	.size	init_kstack, ($init_kstack_end)-init_kstack
+

@@ -238,50 +238,6 @@ $task_exit_end:
 	.size	task_exit, ($task_exit_end)-task_exit
 
 
-	.globl	kernel_init
-	.p2align	2
-	.type	kernel_init,@function
-	.ent	kernel_init                    # @taskexit
-kernel_init:
-	.set	noreorder
-	.set	nomacro
-
-# 模仿中断中保存 PC
-  addiu $sp, $sp, -4
-  sto $lr, 0($sp)
-
-# 保存 GPR 到 current 栈上
-  addiu $sp, $sp, -44
-  sto $v0, 0($sp)
-  sto $v1, 4($sp)
-  sto $a0, 8($sp)
-  sto $a1, 12($sp)
-  sto $s0, 16($sp)
-  sto $s1, 20($sp)
-  sto $t0, 24($sp)
-  sto $t1, 28($sp)
-  sto $t2, 32($sp)
-  sto $fp, 36($sp)
-  sto $lr, 40($sp)
-
-  # no args
-  addiu $sp, $sp, -4
-  add $a0, $zr, $zr
-  sto $a0, 0($sp)
-
-	lui	$a1, %hi(k_kernel_init)
-	ori	$a1, $a1, %lo(k_kernel_init)
-	lui	$t1, %hi(do_kernel_method)
-	ori	$t1, $t1, %lo(do_kernel_method)
-  jr $t1
-
-	.set	macro
-	.set	reorder
-	.end	kernel_init
-$kernel_init_end:
-	.size	kernel_init, ($kernel_init_end)-kernel_init
-
-
 	.globl	kernel_exit
 	.p2align	2
 	.type	kernel_exit,@function
@@ -515,3 +471,32 @@ do_eret:
 	.end	irq_handler
 $irq_handler_end:
 	.size	irq_handler, ($irq_handler_end)-irq_handler
+
+
+
+	.globl	proc_start
+	.p2align	2
+	.type	proc_start,@function
+	.ent	proc_start
+proc_start:
+	.set	noreorder
+	.set	nomacro
+  
+  # on entry, a0 should hold the entry point
+
+  # enable interrupts
+  #   proc_start is from switch_kstack, during which interrupts are disabled
+  addiu $t0, $zr, 2
+  or $fr, $fr, $t0    
+
+  jalr $a0
+
+  lui $t0, %hi(k_task_exit)
+  ori $t0, $t0, %lo(k_task_exit)
+  jr $t0
+
+	.set	macro
+	.set	reorder
+	.end	proc_start
+$proc_start_end:
+	.size	proc_start, ($proc_start_end)-proc_start
