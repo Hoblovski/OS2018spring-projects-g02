@@ -23,8 +23,6 @@ unsigned int num_clock_ticks = 0;
 unsigned int saved_uart1_out_ready = 0;
 unsigned int saved_uart1_in_ready = 0;
 
-unsigned alloc_page();
-
 static void memset(unsigned* ptr, unsigned val, unsigned len){
   for (unsigned* i = ptr; i < ptr + len; i++)
     *i = 0;
@@ -97,7 +95,23 @@ void scheduler(void){
 }
 
 void clean_mm(struct process_control_block* pcb){
-  // TODO: free pages
+  // stupid iterating over pgdir and pgtab
+  unsigned fr = read_flags_register();
+  deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
+  { // interrupt not enabled
+    for (unsigned* pdep = pcb->pgdir; pdep < ((unsigned*) pcb->pgdir) + (PAGE_SIZE>>2); pdep++) {
+      if ((*pdep & PDE_FLAGS_P) != PDE_FLAGS_P) continue;
+      unsigned* pt = PA2KLA(GET_PN(*pdep));
+      for (unsigned* ptep = pt; ptep < pt + (PAGE_SIZE>>2); ptep++) {
+        if ((*ptep & PTE_FLAGS_P) != PTE_FLAGS_P) continue;
+        unsigned pagepa = (unsigned) GET_PN(*ptep);
+        release_page(pagepa);
+      }
+      release_page((unsigned) KLA2PA(pt));
+    }
+    release_page((unsigned) KLA2PA(pcb->pgdir));
+  }
+  write_flags_register(fr);
 }
 
 void k_task_exit(void){
@@ -198,7 +212,7 @@ void mm_init(){
 //  kernel is able to directly access physical address
 //
 // stupid slow algorithm
-unsigned alloc_page(){
+unsigned calloc_page(){
   for (int i = n_kpages; i < n_pages; i++)
     if (pages[i].ref == 0) {
       unsigned fr = read_flags_register();
@@ -222,6 +236,7 @@ void release_page(unsigned pa){
   deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
   { // interrupt not enabled
     unsigned pgidx = pa >> PAGE_SIZE_WIDTH;
+    if (pages[pgidx].ref == 0) fatal(41); // double free?!
     pages[pgidx].ref--;
   }
   write_flags_register(fr);
@@ -244,7 +259,7 @@ pte_t* get_pte(pde_t* pd, unsigned la, unsigned alloc_for_pt){
   // page table not present, alloc a page frame for page table
   if (alloc_for_pt) {
     unsigned t;
-    t = alloc_page();
+    t = calloc_page();
     *pde = PA2KLA(t) | PDE_FLAGS_P;
     pte = (pte_t*) GET_PN(*pde);
     pte = &(pte[GET_PTIDX(la)]);
@@ -296,7 +311,7 @@ void stupid_proc_init(void){
   // the first thread can't be created by fork
   idle_proc = alloc_proc();
   idle_proc->pgdir = 0; // idle will never use useg
-  idle_proc->kstack = (void*) ((unsigned) init_stack + (1<<PAGE_SIZE_WIDTH) - 4);
+  idle_proc->kstack = (void*) ((unsigned) init_stack + PAGE_SIZE - 4);
   idle_proc->ustack = 0; // idle will never goto user mode
   idle_proc->state = ACTIVE; // idle is right running
   if (idle_proc->pid != 0) fatal(21);
@@ -306,8 +321,8 @@ void stupid_proc_init(void){
 
   // the first user process can't be created by fork
   struct process_control_block* stupid_proc = alloc_proc();
-  stupid_proc->pgdir = 0; // stupid will never use useg
-  stupid_proc->kstack = (void*) PA2KLA((unsigned) alloc_page()) + (1<<PAGE_SIZE_WIDTH) - 4;
+  stupid_proc->pgdir = (void*) PA2KLA((unsigned) calloc_page());
+  stupid_proc->kstack = (void*) PA2KLA((unsigned) calloc_page()) + PAGE_SIZE - 4;
   stupid_proc->ustack = 0; // stupid will never goto user mode
   stupid_proc->state = BLOCKED_ON_CLOCK_TICK; // stupid is right running
   stupid_proc->priority = ~0u - 2; // least priority

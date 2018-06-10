@@ -12,7 +12,7 @@ main:
 	lui	$sp, %hi(init_stack)
 	ori	$sp, $sp, %lo(init_stack)
   # TODO: stupid hack, use a macro?
-	addiu $sp, $sp, 4092
+	addiu $sp, $sp, 16380
 	# using init stack
 
 	lui	$t0, %hi(kernel_init)

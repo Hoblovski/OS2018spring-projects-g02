@@ -60,4 +60,7 @@ void save_context_to_kstack(void** kstack);
 void load_context_from_kstack(void** kstack);
 void use_pgdir(void* pgdir);
 
+unsigned calloc_page();
+void release_page(unsigned pa);
+pte_t* get_pte(pde_t* pd, unsigned la, unsigned alloc_for_pt);
 #endif

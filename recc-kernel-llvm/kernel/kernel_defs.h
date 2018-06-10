@@ -17,15 +17,6 @@
 */
 #define NULL (0)
 
-#define PAGE_SIZE_WIDTH 10
-#define PAGE_TABLE_SIZE_WIDTH 11
-#define PAGE_DIR_SIZE_WIDTH 11
-// 128 MB of physical address space
-//  actually it should be probed, but anyway -- this stupid hack
-#define MEMSIZE (128<<20)
-// kernel reserves 1MB of these
-#define KMEMSIZE (1<<20)
-
 #define UART1_OUT        0xffff0000u
 #define UART1_IN         0xffff0010u
 #define IRQ_HANDLER      0xffff0020u
@@ -56,26 +47,36 @@
 #define USEG_BEGIN 0
 #define KSEG_BEGIN 0xc0000000
 #define PSEG_BEGIN 0xffff0000
-// XXX crazy hack: liner can't provide an `_end` symbol
+// XXX crazy hack: linker can't provide an `_end` symbol
 //  so do it myself
 #define IMAGE_END (KSEG_BEGIN + 0x10000)
 
 // TODO: rwx check
+#define PAGE_SIZE_WIDTH 12
+#define PAGE_TABLE_SIZE_WIDTH 10
+#define PAGE_DIR_SIZE_WIDTH 10
+#define PAGE_SIZE (1<<PAGE_SIZE_WIDTH)
+#define PDSHIFT (PAGE_SIZE_WIDTH+PAGE_TABLE_SIZE_WIDTH)
+#define PTSHIFT (PAGE_SIZE_WIDTH)
+#define PTMASK ((1<<PAGE_TABLE_SIZE_WIDTH)-1)
+#define POFFSETMASK ((1<<PAGE_SIZE_WIDTH)-1)
+// 128 MB of physical address space
+//  actually it should be probed, but anyway -- this stupid hack
+#define MEMSIZE (128<<20)
+// kernel reserves 1MB of these
+#define KMEMSIZE (1<<20)
 #define PDE_FLAGS_P 1
 #define PTE_FLAGS_P 1
-#define PDSHIFT 21
-#define PTMASK 0x7FF
-#define PTSHIFT 10
-#define POFFSETMASK 0x3FF
 #define GET_PDIDX(addr) ((addr) >> PDSHIFT)
 #define GET_PTIDX(addr) (((addr) >> PTSHIFT) & PTMASK)
 #define GET_PN(addr) ((addr) & ~POFFSETMASK)
 #define GET_POFFSET(addr) ((addr) & POFFSETMASK)
 #define PA2KLA(addr) ((addr) + KSEG_BEGIN)
+#define KLA2PA(addr) ((addr) - KSEG_BEGIN)
 // this bit: is this page frame reserved for kernel, and can't be alloc'ed or freed?
 #define PF_KRESERVE 1
 
-#define STACK_SIZE 1024
+#define STACK_SIZE PAGE_SIZE
 
 /* ensure that MAX_NUM_PROCESSES is an exponent of 2 */
 #define MAX_NUM_PROCESSES 8
