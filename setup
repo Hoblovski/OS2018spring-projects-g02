@@ -1,0 +1,24 @@
+#!/bin/sh
+
+echo "Building compiler and linker (about 30 mins on an ancient laptop)"
+cd llvm-3.9.0.src
+mkdir build && cd build
+cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Debug -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -G "Unix Makefiles" ..
+make llc llvm-mc lld      # 机器性能允许则可以 -jX 并行构建
+
+echo "Building kernel"
+cd ..
+cd ..
+cd recc-kernel-llvm
+make
+
+echo "Building emulator"
+cd ..
+cd cpu0-emulator
+mkdir build && cd build
+cmake ..
+make
+
+echo "Running kernel"
+cp ../../recc-kernel-llvm/build/a.img .
+./cpu0emu a.img 0 2
