@@ -33,7 +33,7 @@ static void memcpy(unsigned* dst, unsigned* src, unsigned len){
     *(dst++) = *(src++);
 }
 
-static struct process_control_block* 
+static struct process_control_block*
 select_task(enum process_state state)
 {
   struct process_control_block * task = NULL;
@@ -53,19 +53,19 @@ void unblock_tasks_for_event(enum kernel_event event){
       struct process_control_block* unblocked_task = select_task(
           BLOCKED_ON_CLOCK_TICK);
       if (unblocked_task != NULL)
-        mark_task_ready(unblocked_task);
+        unblocked_task->state = READY;
 			break;
 		}case UART1_OUT_READY:{
       struct process_control_block* unblocked_task = select_task(
           BLOCKED_ON_UART1_OUT_READY);
       if (unblocked_task != NULL)
-        mark_task_ready(unblocked_task);
+        unblocked_task->state = READY;
       break;
 		}case UART1_IN_READY:{
       struct process_control_block* unblocked_task = select_task(
           BLOCKED_ON_UART1_IN_READY);
       if (unblocked_task != NULL)
-        mark_task_ready(unblocked_task);
+        unblocked_task->state = READY;
       break;
 		}default:{
       fatal(11); // bad event
@@ -75,33 +75,14 @@ void unblock_tasks_for_event(enum kernel_event event){
   // a sched() can be here
 }
 
-void mark_task_ready(struct process_control_block * pcb){
-	pcb->state = READY;
-}
-
-void save_current_task_as_ready(void){
-	/*  Save the stack pointer of the current task */
-	pcbs[current_task_id].ustack = g_current_sp;
-	/*  Put current task back on ready queue */
-	mark_task_ready(&pcbs[current_task_id]);
-}
-
-void save_current_task(struct task_queue * queue, enum process_state state){
-  fatal(29);
-}
-
-void scheduler(void){
-  fatal(22);
-}
-
 void clean_mm(struct process_control_block* pcb){
   // stupid iterating over pgdir and pgtab
-  unsigned fr = read_flags_register();
+  unsigned fr = read_flags_register() & GLOBAL_INTERRUPT_ENABLE_BIT;
   deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
   { // interrupt not enabled
     for (unsigned* pdep = pcb->pgdir; pdep < ((unsigned*) pcb->pgdir) + (PAGE_SIZE>>2); pdep++) {
       if ((*pdep & PDE_FLAGS_P) != PDE_FLAGS_P) continue;
-      unsigned* pt = PA2KLA(GET_PN(*pdep));
+      unsigned* pt = (unsigned*) PA2KLA(GET_PN(*pdep));
       for (unsigned* ptep = pt; ptep < pt + (PAGE_SIZE>>2); ptep++) {
         if ((*ptep & PTE_FLAGS_P) != PTE_FLAGS_P) continue;
         unsigned pagepa = (unsigned) GET_PN(*ptep);
@@ -111,7 +92,7 @@ void clean_mm(struct process_control_block* pcb){
     }
     release_page((unsigned) KLA2PA(pcb->pgdir));
   }
-  write_flags_register(fr);
+  or_into_flags_register(fr);
 }
 
 void k_task_exit(void){
@@ -123,7 +104,7 @@ void k_task_exit(void){
 }
 
 void k_release_processor(void){
-	scheduler();
+  fatal(24);
 }
 
 void k_block_on_event(enum kernel_event event){
@@ -141,26 +122,22 @@ void k_irq_handler(void){
     // TODO
 		// deassert_bits_in_flags_register(PAGE_FAULT_EXCEPTION_ASSERTED_BIT);
 	}else if((ass = flags_register & UART1_OUT_ASSERTED_BIT)){
-    printf_direct("uo\n");
 		deassert_bits_in_flags_register(UART1_OUT_ASSERTED_BIT);
-    // TODO
-		// unblock_tasks_for_event(UART1_OUT_READY);
+		unblock_tasks_for_event(UART1_OUT_READY);
 	}else if((ass = flags_register & UART1_IN_ASSERTED_BIT)){
-    printf_direct("ui\n");
 		deassert_bits_in_flags_register(UART1_IN_ASSERTED_BIT);
-    // TODO
-		// unblock_tasks_for_event(UART1_IN_READY);
+		unblock_tasks_for_event(UART1_IN_READY);
 	}else if((ass = flags_register & TIMER1_ASSERTED_BIT)){
-    printf_direct("tick %x\n", num_clock_ticks);
+    if ((num_clock_ticks & 63) == 32)
+      printf_direct("tick %x\n", num_clock_ticks);
 		deassert_bits_in_flags_register(TIMER1_ASSERTED_BIT);
 		num_clock_ticks++;
-    // TODO
 		unblock_tasks_for_event(CLOCK_TICK_EVENT);
-    sched();
 	}else{
 		/*  Something really bad happend. */
     fatal(20);
 	}
+  sched();
 }
 
 void k_send_message(struct kernel_message * message, unsigned int destination_pid, struct kernel_message * reply){
@@ -215,12 +192,12 @@ void mm_init(){
 unsigned calloc_page(){
   for (int i = n_kpages; i < n_pages; i++)
     if (pages[i].ref == 0) {
-      unsigned fr = read_flags_register();
+      unsigned fr = read_flags_register() & GLOBAL_INTERRUPT_ENABLE_BIT;
       deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
       { // interrupt not enabled
         pages[i].ref = 1;
       }
-      write_flags_register(fr);
+      or_into_flags_register(fr);
       // zero alloc'ed page
       memset(PA2KLA((unsigned*) (i<<PTSHIFT)), 0, (1<<(PTSHIFT-2)));
       return (i<<PAGE_SIZE_WIDTH);
@@ -232,14 +209,14 @@ unsigned calloc_page(){
 // when a process gives up the page frame
 //  pa must be aligned
 void release_page(unsigned pa){
-  unsigned fr = read_flags_register();
+  unsigned fr = read_flags_register() & GLOBAL_INTERRUPT_ENABLE_BIT;
   deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
   { // interrupt not enabled
     unsigned pgidx = pa >> PAGE_SIZE_WIDTH;
     if (pages[pgidx].ref == 0) fatal(41); // double free?!
     pages[pgidx].ref--;
   }
-  write_flags_register(fr);
+  or_into_flags_register(fr);
 }
 
 // returns linear address to pte
@@ -296,7 +273,9 @@ struct process_control_block* alloc_proc(void) {
   // new process id is rv
   pcbs[rv].pid = rv;
   pcbs[rv].state = NOT_INITIALIZED;
+  pcbs[rv].pgdir = NULL;
   pcbs[rv].ustack = NULL;
+  pcbs[rv].kstack = NULL;
   pcbs[rv].priority = ~0u;
   message_queue_init(&(pcbs[rv].messages), MAX_NUM_PROCESSES);
   pcbs[rv].reply_message = NULL;
@@ -304,39 +283,41 @@ struct process_control_block* alloc_proc(void) {
   return &(pcbs[rv]);
 }
 
+struct process_control_block* create_kernel_thread(void (*fn)(void),
+    enum process_state init_state, unsigned init_priority){
+  struct process_control_block* proc = alloc_proc();
+  proc->pgdir = (void*) PA2KLA((unsigned) calloc_page());
+  proc->kstack = (void*) PA2KLA((unsigned) calloc_page()) + PAGE_SIZE - 4;
+  proc->ustack = 0;
+  proc->state = init_state;
+  proc->priority = init_priority;
+  // TODO: message buffer
+  init_kstack(&(proc->kstack), fn);
+  return proc;
+}
+
 void stupid_proc_init(void){
   for (unsigned i = 0; i < MAX_NUM_PROCESSES; i++)
     pcbs[i].state = NOT_ALLOCATED;
 
-  // the first thread can't be created by fork
+  // idle thread
   idle_proc = alloc_proc();
-  idle_proc->pgdir = 0; // idle will never use useg
   idle_proc->kstack = (void*) ((unsigned) init_stack + PAGE_SIZE - 4);
-  idle_proc->ustack = 0; // idle will never goto user mode
-  idle_proc->state = ACTIVE; // idle is right running
+  idle_proc->state = READY; // idle is right running
   if (idle_proc->pid != 0) fatal(21);
   idle_proc->priority = ~0u - 1; // least priority
-  // idle will never send / recv messages
   cur_proc = idle_proc;
 
-  // the first user process can't be created by fork
-  struct process_control_block* stupid_proc = alloc_proc();
-  stupid_proc->pgdir = (void*) PA2KLA((unsigned) calloc_page());
-  stupid_proc->kstack = (void*) PA2KLA((unsigned) calloc_page()) + PAGE_SIZE - 4;
-  stupid_proc->ustack = 0; // stupid will never goto user mode
-  stupid_proc->state = BLOCKED_ON_CLOCK_TICK; // stupid is right running
-  stupid_proc->priority = ~0u - 2; // least priority
-  // stupid will never send / recv messages
-  init_kstack(&(stupid_proc->kstack), user_proc_1);
+  create_kernel_thread(hello_msg_ksvc, BLOCKED_ON_CLOCK_TICK, ~0u-2);
+  create_kernel_thread(uart1_in_ksvc, READY, ~0u-2);
+  create_kernel_thread(uart1_out_ksvc, READY, ~0u-2);
 }
 
 void sched(void)
 {
-  unsigned fr = read_flags_register();
+  unsigned fr = read_flags_register() & GLOBAL_INTERRUPT_ENABLE_BIT;
   deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
   { // interrupt not enabled
-    if (cur_proc->state == ACTIVE)
-      cur_proc->state = READY;
     // select process `next_proc` to swap in
     struct process_control_block* next_proc = NULL;
     unsigned min_priority = ~0u;
@@ -352,10 +333,10 @@ void sched(void)
       use_pgdir(next_proc->pgdir);
       struct process_control_block* old_proc = cur_proc;
       cur_proc = next_proc;
-      switch_kstack(&(next_proc->kstack), &(old_proc->kstack));
+      switch_kstack(next_proc, old_proc);
     }
   }
-  write_flags_register(fr);
+  or_into_flags_register(fr);
 }
 
 void k_kernel_init(void){
@@ -374,11 +355,5 @@ void k_kernel_init(void){
 
   // finished, idle process keeps trying to scheduling to other tasks
   printf_direct("Hello world\n");
-  while (1) {
-    if (cur_proc->pid == 1) {
-      printf_direct("stupid running\n");
-      cur_proc->state = BLOCKED_ON_CLOCK_TICK;
-    }
-    sched();
-  }
+  while (1) { }
 }

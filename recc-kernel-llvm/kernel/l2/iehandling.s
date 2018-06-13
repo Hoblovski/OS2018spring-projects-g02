@@ -194,49 +194,6 @@ $block_on_event_end:
 	.size	block_on_event, ($block_on_event_end)-block_on_event
 
 
-	.globl	task_exit
-	.p2align	2
-	.type	task_exit,@function
-	.ent	task_exit                    # @taskexit
-task_exit:
-	.set	noreorder
-	.set	nomacro
-
-# 模仿中断中保存 PC
-  addiu $sp, $sp, -4
-  sto $lr, 0($sp)
-
-# 保存 GPR 到 current 栈上
-  addiu $sp, $sp, -44
-  sto $v0, 0($sp)
-  sto $v1, 4($sp)
-  sto $a0, 8($sp)
-  sto $a1, 12($sp)
-  sto $s0, 16($sp)
-  sto $s1, 20($sp)
-  sto $t0, 24($sp)
-  sto $t1, 28($sp)
-  sto $t2, 32($sp)
-  sto $fp, 36($sp)
-  sto $lr, 40($sp)
-
-  # no args
-  addiu $sp, $sp, -4
-  add $a0, $zr, $zr
-  sto $a0, 0($sp)
-
-	lui	$a1, %hi(k_task_exit)
-	ori	$a1, $a1, %lo(k_task_exit)
-	lui	$t1, %hi(do_kernel_method)
-	ori	$t1, $t1, %lo(do_kernel_method)
-  jr $t1
-
-	.set	macro
-	.set	reorder
-	.end	task_exit
-$task_exit_end:
-	.size	task_exit, ($task_exit_end)-task_exit
-
 
 	.globl	kernel_exit
 	.p2align	2
@@ -421,14 +378,22 @@ irq_handler:
   sto $fp, 36($sp)
   sto $lr, 40($sp)
 
-# 切换到 kernel 栈
-# 注意, 这里和 process_control_block 的 layout 有关!
-  lui	$t0, %hi(cur_proc)
-  ori	$t0, $t0, %lo(cur_proc)
-  loa $t0, 0($t0)   # t0 -> cur_proc
-  sto $sp, 0($t0)   # cur_proc->ustack = $sp
-  loa $sp, 4($t0)   # $sp = cur_proc->kstack
+  lui $t0, %hi(cur_proc)
+  ori $t0, $t0, %lo(cur_proc)
+  loa $t0, 0($t0)
+  sto $sp, 0($t0)         # cur_proc->ustack = $sp
 
+  # 判断是不是用户态过来的, 如果是, 那么切换到 (为空的) 内核栈
+  lui $t0, -1
+  loa $t0, 0x60($t0)
+  addiu $t1, $zr, 2048
+  and $t0, $t0, $t1
+  beq $t0, $zr, $f2
+
+  addiu $a0, $zr, -2
+  addiu $fr, $fr, 1     # 现在还没有用户态太好的支持
+
+$f2:
 # 跳转到服务例程
   lui	$t0, %hi(k_irq_handler)
   ori	$t0, $t0, %lo(k_irq_handler)
@@ -437,11 +402,12 @@ irq_handler:
 # ...
 # 从服务例程返回回来
 
+irq_ret:
 # 切换到应用栈
   lui	$t0, %hi(cur_proc)
   ori	$t0, $t0, %lo(cur_proc)
   loa $t0, 0($t0)
-  loa $sp, 0($t0)   # $sp = cur_proc->ustack
+  loa $sp, 0($t0)       # $sp = cur_proc->ustack, cur_proc 可能已经变了
   beq $zr, $zr, do_eret
 
 do_eret:

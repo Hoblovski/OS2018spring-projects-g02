@@ -26,7 +26,6 @@ enum process_state {
   BLOCKED_ON_UART1_IN_READY  = 5,
   BLOCKED_ON_UART1_OUT_READY = 6,
   READY                      = 7,
-  ACTIVE                     = 8,
   ZOMBIE                     = 9,
   NOT_ALLOCATED              = 10,
   NOT_INITIALIZED            = 11,
@@ -104,19 +103,9 @@ extern struct task_queue blocked_on_clock_tick_queue;
 extern struct task_queue blocked_on_uart1_out_ready_queue;
 extern struct task_queue blocked_on_uart1_in_ready_queue;
 
-extern unsigned int * g_kernel_sp;
-extern unsigned int * g_current_sp;
-extern unsigned int kernel_stack[STACK_SIZE];
 extern struct process_control_block pcbs[MAX_NUM_PROCESSES];
 extern struct process_control_block* cur_proc;
 extern struct process_control_block* idle_proc;
-extern unsigned int user_proc_1_stack[STACK_SIZE];
-extern unsigned int user_proc_2_stack[STACK_SIZE];
-extern unsigned int user_proc_3_stack[STACK_SIZE];
-extern unsigned int user_proc_4_stack[STACK_SIZE];
-extern unsigned int user_proc_5_stack[STACK_SIZE];
-extern unsigned int user_proc_6_stack[STACK_SIZE];
-extern unsigned int user_proc_7_stack[STACK_SIZE];
 extern unsigned int init_stack[STACK_SIZE];
 
 extern unsigned n_pages;

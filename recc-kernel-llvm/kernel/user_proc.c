@@ -25,7 +25,7 @@ int putchar(int c){
 	struct kernel_message putchar_reply;
 	putchar_m.message_type = OUTPUT_CHARACTER;
 	putchar_m.data = c;
-	send_message(&putchar_m, PID_UART1_OUT_SERVER, &putchar_reply);
+	send_message(&putchar_m, 0 /* TODO */, &putchar_reply);
 	switch(putchar_reply.message_type){
 		case MESSAGE_ACKNOWLEDGED:{
 			break;
@@ -36,7 +36,7 @@ int putchar(int c){
   return 0;
 }
 
-void user_proc_1(void){
+void hello_msg_ksvc(void){
   printf_direct("You're currently running a very simple microkernel that was built\n");
   printf_direct("for the purposes of demonstrating the 'One Page CPU' design, and\n");
   printf_direct("cross compiler collection.  This microkernel implements inter-process\n");
@@ -48,169 +48,23 @@ void user_proc_1(void){
   printf_direct("p -  Prints the priority of each task.\n");
 }
 
-unsigned int num_ticks = 0;
-
-void clock_tick_counter(void){
-	struct kernel_message clock_server_message;
-	struct kernel_message clock_server_reply;
-	clock_server_message.message_type = CLOCK_TICK_NOTIFY;
-	clock_server_message.data = 1;
+void uart1_in_ksvc(void){
 	while(1){
-		block_on_event(CLOCK_TICK_EVENT);
-    num_ticks++;
+    cur_proc->state = BLOCKED_ON_UART1_IN_READY;
+    sched();
+    unsigned ch = getchar_nobusy();
   }
 }
 
-void uart1_out_ready_notifier(void){
-	struct kernel_message output_server_message;
-	struct kernel_message output_server_reply;
-	output_server_message.message_type = UART1_OUT_READY_NOTIFY;
-	output_server_message.data = 1;
+void uart1_out_ksvc(void){
+  unsigned tot = 5;
+  putchar_busy('@');
 	while(1){
-		block_on_event(UART1_OUT_READY);
-		send_message(&output_server_message, PID_UART1_OUT_SERVER, &output_server_reply);
-		switch(output_server_reply.message_type){
-			case MESSAGE_ACKNOWLEDGED:{
-				break;
-			}default:{
-        fatal(2); // Unknown message type.
-			}
-		}
-	}
-}
-
-void uart1_out_server(void){
-	struct message_queue output_requests;
-	struct kernel_message message_to_reply;
-	struct kernel_message received_message;
-	struct kernel_message poped_message;
-	unsigned int can_output = 1; /* Initially, it is ok to send a character when the CPU starts, because we haven't got an interrupt yet */
-	message_to_reply.message_type = MESSAGE_ACKNOWLEDGED;
-	message_queue_init(&output_requests, MAX_NUM_PROCESSES);
-	while(1){
-		receive_message(&received_message);
-		switch(received_message.message_type){
-			case UART1_OUT_READY_NOTIFY:{
-				if(message_queue_current_count(&output_requests)){
-					poped_message = message_queue_pop_start(&output_requests);
-					putchar_nobusy(poped_message.data);
-					can_output = 0;
-					reply_message(&message_to_reply, poped_message.source_id);
-				}else{
-					can_output = 1;
-				}
-				reply_message(&message_to_reply, received_message.source_id);
-				break;
-			}case OUTPUT_CHARACTER:{
-				if(can_output){
-					putchar_nobusy(received_message.data);
-					reply_message(&message_to_reply, received_message.source_id);
-					can_output = 0;
-				}else{
-					message_queue_push_end(&output_requests, received_message);
-				}
-				break;
-			}default:{
-        fatal(3); // Unknown message type.
-			}
-		}
-	}
-}
-
-void uart1_in_ready_notifier(void){
-	struct kernel_message input_server_message;
-	struct kernel_message input_server_reply;
-	input_server_message.message_type = UART1_IN_READY_NOTIFY;
-	input_server_message.data = 1;
-	while(1){
-		block_on_event(UART1_IN_READY);
-		send_message(&input_server_message, PID_UART1_IN_SERVER, &input_server_reply);
-		switch(input_server_reply.message_type){
-			case MESSAGE_ACKNOWLEDGED:{
-				break;
-			}default:{
-        fatal(4); // Unknown message type.
-			}
-		}
-	}
-}
-
-void uart1_in_server(void){
-	struct kernel_message message_to_reply;
-	struct kernel_message received_message;
-	struct kernel_message output_server_message;
-	struct kernel_message output_server_reply;
-	message_to_reply.message_type = MESSAGE_ACKNOWLEDGED;
-	output_server_message.message_type = OUTPUT_CHARACTER;
-	while(1){
-		receive_message(&received_message);
-		switch(received_message.message_type){
-			case UART1_IN_READY_NOTIFY:{
-				output_server_message.data = getchar_nobusy();
-				/*  Send the character to output */
-				send_message(&output_server_message, PID_UART1_OUT_SERVER, &output_server_reply);
-				switch(output_server_reply.message_type){
-					case MESSAGE_ACKNOWLEDGED:{
-						break;
-					}default:{
-            fatal(5); // Unknown message type.
-					}
-				}
-				/*  Let the command server know what is being typed */
-				send_message(&output_server_message, PID_COMMAND_SERVER, &output_server_reply);
-				switch(output_server_reply.message_type){
-					case MESSAGE_ACKNOWLEDGED:{
-						break;
-					}default:{
-						fatal(6); // Unknown message type.
-					}
-				}
-				reply_message(&message_to_reply, received_message.source_id);
-				break;
-			}default:{
-        fatal(7); // Unknown message type.
-			}
-		}
-	}
-}
-
-void command_server(void){
-	struct kernel_message received_message;
-	struct kernel_message input_server_reply;
-	input_server_reply.message_type = MESSAGE_ACKNOWLEDGED;
-	while(1){
-		receive_message(&received_message);
-		switch(received_message.message_type){
-			case OUTPUT_CHARACTER:{
-				switch(received_message.data){
-					case 116:{/* letter 't' */
-						printf("\n0x%x\n", num_ticks);
-						break;
-					}case 115:{/* letter 's' */
-						unsigned int i;
-						printf("\n");
-						for(i = 0; i < MAX_NUM_PROCESSES; i++){
-							printf("Task 0x%x SP: 0x%X\n", (unsigned)pcbs[i].pid, (unsigned int)pcbs[i].ustack);
-						}
-						break;
-					}case 112:{/* letter 'p' */
-						unsigned int i;
-						printf("\n");
-						for(i = 0; i < MAX_NUM_PROCESSES; i++){
-							printf("Task 0x%x Priority: 0x%x\n", i, pcbs[i].priority);
-						}
-						break;
-          }default:{
-						printf("\n");
-						printf("Unknown command.\n");
-					}
-				}
-				break;
-			}default:{
-				fatal(8); // Unknown message type.
-			}
-		}
-		reply_message(&input_server_reply, received_message.source_id);
-    printf("$ ");
-	}
+    cur_proc->state = BLOCKED_ON_UART1_OUT_READY;
+    sched();
+    if (tot != 0) {
+      tot--;
+      putchar_nobusy('@');
+    }
+  }
 }

@@ -28,26 +28,11 @@ struct task_queue blocked_on_send_queue;
 struct task_queue blocked_on_receive_queue;
 struct task_queue blocked_on_reply_queue;
 
-unsigned int* g_current_sp;
-unsigned int* g_kernel_sp;
-
 struct process_control_block pcbs[MAX_NUM_PROCESSES];
-
 unsigned int init_stack[STACK_SIZE];
-
-unsigned int kernel_stack[STACK_SIZE];
-
-unsigned int user_proc_1_stack[STACK_SIZE];
-unsigned int user_proc_2_stack[STACK_SIZE];
-unsigned int user_proc_3_stack[STACK_SIZE];
-unsigned int user_proc_4_stack[STACK_SIZE];
-unsigned int user_proc_5_stack[STACK_SIZE];
-unsigned int user_proc_6_stack[STACK_SIZE];
-unsigned int user_proc_7_stack[STACK_SIZE];
+struct process_control_block* cur_proc;
+struct process_control_block* idle_proc;
 
 struct page* pages;
 unsigned n_pages;
 unsigned n_kpages;
-
-struct process_control_block* cur_proc;
-struct process_control_block* idle_proc;

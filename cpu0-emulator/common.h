@@ -1,8 +1,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#define UART_INIT_WAIT 10000
-#define UART_RANDOM_WAIT (rand() % 100000)
+#define UART_INIT_WAIT 6000
+#define UART_RANDOM_WAIT (rand() % 6000)
 
 #define PERM_CHECK
 

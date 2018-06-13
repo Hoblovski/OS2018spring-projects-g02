@@ -76,13 +76,11 @@ char* instrname[] = {
 };
 
 char* regname[] = {
-  "pc", "sp", "fp", "zr", "fr", "wr",
-  "at", "lr", "gp", "v0", "v1", "a0",
-  "a1", "s0", "s1", "t0", "t1", "t2",
-  "epc"
+  "pc", "sp", "fp",  "zr", "fr", "wr", "at", "lr",
+  "gp", "v0", "v1",  "a0", "a1", "s0", "s1", "t0",
+  "t1", "t2", "epc", "?",  "?",  "?",  "?",  "?",
+  "?",  "?",  "?",   "?",  "?",  "?",  "?",  "?",
 };
-
-#ifdef INSTR_WATCH
 
 #define INSTR_TYPE_R 1
 #define INSTR_TYPE_I 2
@@ -106,8 +104,6 @@ int instr_type(uint32_t opcode)
       assert(0 && "bad opcode");
   }
 }
-
-#endif
 
 void dump_fr(machine_t* m)
 {
@@ -133,6 +129,53 @@ void dump_fr(machine_t* m)
   if (r & FRBIT_UART1_INRDY)
     Printf("IRD ");
 }
+
+void dump_inst(machine_t* m, uint32_t inst)
+{
+  uint32_t opcode = decode_opcode(inst);
+  uint32_t rx = decode_rx(inst);
+  uint32_t ry = decode_ry(inst);
+  uint32_t rz = decode_rz(inst);
+  uint32_t imm = decode_imm16(inst);
+  uint32_t immsext = decode_imm16sext(inst);
+  uint32_t imm26sext = decode_imm26sext(inst);
+  switch (instr_type(opcode)) {
+    case INSTR_TYPE_R:
+      Printf("* [%08X]{%08X} [%-6d] %-6s $%-4s $%-4s $%-4s\n",
+          m->regs[REG_PC], inst, m->cycno, instrname[opcode],
+          regname[rx], regname[ry], regname[rz]);
+      break;
+    case INSTR_TYPE_I:
+      Printf("* [%08X]{%08X} [%-6d] %-6s $%-4s $%-4s %d (u%d)\n",
+          m->regs[REG_PC], inst, m->cycno, instrname[opcode],
+          regname[rx], regname[ry], immsext, imm);
+      break;
+    case INSTR_TYPE_J:
+      Printf("* [%08X]{%08X} [%-6d] %-6s %d (h%08X)\n",
+          m->regs[REG_PC], inst, m->cycno, instrname[opcode],
+          imm26sext, imm26sext);
+      break;
+    default:
+      assert(0 && "bad instr type");
+  }
+  fflush(stdout);
+}
+
+void dump_state(machine_t* m)
+{
+  Printf("state dump:\n");
+  for (int i = 0; i < NUM_REGS; i++)
+    Printf("%5s: %08X\n", regname[i], m->regs[i]);
+  Printf("state dump finish\n");
+}
+
+#define fatal(...) do {\
+    Printf("**************** fatal!\n");\
+    Printf(__VA_ARGS__);\
+    dump_inst(m, inst);\
+    dump_state(m);\
+    assert(0);\
+  } while (0)
 
 // TODO: protection fault should halt machine? or trigger exception?
 #define WRITE_REG(m, rx, val) do {\
@@ -160,27 +203,9 @@ void exec_inst(machine_t* m, uint32_t inst)
 #ifdef INSTR_WATCH_START_FROM_FIRST_TIMERINT
   if (n_timint > 0) {
 #endif
-    switch (instr_type(opcode)) {
-      case INSTR_TYPE_R:
-        Printf("* [%08X]{%08X} [%-6d] %-6s $%-4s $%-4s $%-4s\n",
-            m->regs[REG_PC], inst, m->cycno, instrname[opcode],
-            regname[rx], regname[ry], regname[rz]);
-        break;
-      case INSTR_TYPE_I:
-        Printf("* [%08X]{%08X} [%-6d] %-6s $%-4s $%-4s %d (u%d)\n",
-            m->regs[REG_PC], inst, m->cycno, instrname[opcode],
-            regname[rx], regname[ry], immsext, imm);
-        break;
-      case INSTR_TYPE_J:
-        Printf("* [%08X]{%08X} [%-6d] %-6s %d (h%08X)\n",
-            m->regs[REG_PC], inst, m->cycno, instrname[opcode],
-            imm26sext, imm26sext);
-        break;
-      default:
-        assert(0 && "bad instr type");
-    }
-    fflush(stdout);
-    Printf("sp=%08X\n", m->regs[REG_SP]);
+    dump_inst(m, inst);
+    // DEBUG
+    printf("& %08X %08X\n", m->regs[REG_SP], m->regs[REG_EPC]);
 #ifdef INSTR_WATCH_START_FROM_FIRST_TIMERINT
   }
 #endif
@@ -223,11 +248,10 @@ void exec_inst(machine_t* m, uint32_t inst)
 //    TODO: add check similar as below, when the kernel image can not have
 //      protection modes
 //
-//      if (0xC0000000 <= la && la < 0xc0002174) {
-//        Printf("\n>>> PC=%08X la=%08X val=%08X writing to .text or .rodata!\n",
-//            m->regs[REG_PC], la, m->regs[rx]);
-//        assert(0);
-//      }
+      if (0xC0000000 <= la && la < 0xc0001c40)
+          fatal("\n>>> PC=%08X la=%08X val=%08X writing to .text or .rodata!\n",
+              m->regs[REG_PC], la, m->regs[rx]);
+
       pa = mmu_la2pa(m, la, &isport, 1);
       if (isport)
         port_sw(m, pa, m->regs[rx]);
@@ -362,6 +386,7 @@ void check_excep(machine_t* m)
     return;
 
   m->regs[REG_EPC] = m->regs[REG_PC];
+  port_sw(m, mmu_la2pa(m, EFLAGS, NULL, 0), m->regs[REG_FR]); // save eflags
   m->regs[REG_FR] &= ~(FRBIT_GIE | FRBIT_PL);  // disable interrupts, enter kernel mode
   m->regs[REG_PC] = port_lw(m, mmu_la2pa(m, IRQ_HANDLER, NULL, 0)); // goto irq handler
 }

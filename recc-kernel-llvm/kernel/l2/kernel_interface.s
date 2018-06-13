@@ -158,33 +158,33 @@ switch_kstack:
 	.set	noreorder
 	.set	nomacro
 
-  sto $sp, 0($a1)
+  addiu $sp, $sp, -44
+  sto $v0, 40($sp)
+  sto $v1, 36($sp)
+  sto $a0, 32($sp)
+  sto $a1, 28($sp)
+  sto $s0, 24($sp)
+  sto $s1, 20($sp)
+  sto $t0, 16($sp)
+  sto $t1, 12($sp)
+  sto $t2, 8($sp)
+  sto $fp, 4($sp)
+  sto $lr, 0($sp)
+  sto $sp, 4($a1)
 
-  sto $v0, -4($sp)
-  sto $v1, -8($sp)
-  sto $a0, -12($sp)
-  sto $a1, -16($sp)
-  sto $s0, -20($sp)
-  sto $s1, -24($sp)
-  sto $t0, -28($sp)
-  sto $t1, -32($sp)
-  sto $t2, -36($sp)
-  sto $fp, -40($sp)
-  sto $lr, -44($sp)
-
-  loa $sp, 0($a0)
-
-  loa $v0, -4($sp)
-  loa $v1, -8($sp)
-  loa $a0, -12($sp)
-  loa $a1, -16($sp)
-  loa $s0, -20($sp)
-  loa $s1, -24($sp)
-  loa $t0, -28($sp)
-  loa $t1, -32($sp)
-  loa $t2, -36($sp)
-  loa $fp, -40($sp)
-  loa $lr, -44($sp)
+  loa $sp, 4($a0)
+  loa $v0, 40($sp)
+  loa $v1, 36($sp)
+  loa $a0, 32($sp)
+  loa $a1, 28($sp)
+  loa $s0, 24($sp)
+  loa $s1, 20($sp)
+  loa $t0, 16($sp)
+  loa $t1, 12($sp)
+  loa $t2, 8($sp)
+  loa $fp, 4($sp)
+  loa $lr, 0($sp)
+  addiu $sp, $sp, 44
 
   ret $lr
 
@@ -227,22 +227,20 @@ init_kstack:
 	.set	nomacro
 
   loa $t0, 0($a0)
-
-  sto $zr, -4($t0)    # v0
-  sto $zr, -8($t0)    # v1
-  sto $a1, -12($t0)   # a0    = pc_init
-  sto $zr, -16($t0)   # a1
-  sto $zr, -20($t0)   # s0
-  sto $zr, -24($t0)   # s1
-  sto $zr, -28($t0)   # t0
-  sto $zr, -32($t0)   # t1
-  sto $zr, -36($t0)   # t2
-  sto $zr, -40($t0)   # fp
+  addiu $t0, $t0, -44
+  sto $zr, 40($t0) # v0
+  sto $zr, 36($t0) # v1
+  sto $a1, 32($t0) # a0    = pc_init
+  sto $zr, 28($t0) # a1
+  sto $zr, 24($t0) # s0
+  sto $zr, 20($t0) # s1
+  sto $zr, 16($t0) # t0
+  sto $zr, 12($t0) # t1
+  sto $zr, 8($t0)  # t2
+  sto $zr, 4($t0)  # fp
   lui $t1, %hi(proc_start)
   ori $t1, $t1, %lo(proc_start)
-  sto $t1, -44($t0)   # lr    = proc_start
-
-  # don't modify, see switch_kstack
+  sto $t1, 0($t0)  # lr    = proc_start
   sto $t0, 0($a0)
 
   ret $lr
@@ -252,4 +250,23 @@ init_kstack:
 	.end	init_kstack
 $init_kstack_end:
 	.size	init_kstack, ($init_kstack_end)-init_kstack
+
+
+##############################################################################
+	.globl	read_stack_register
+	.p2align	2
+	.type	read_stack_register,@function
+	.ent	read_stack_register
+read_stack_register:
+	.set	noreorder
+	.set	nomacro
+
+  add $v0, $sp, $zr
+  ret $lr
+
+	.set	macro
+	.set	reorder
+	.end	read_stack_register
+$read_stack_register_end:
+	.size	read_stack_register, ($read_stack_register_end)-read_stack_register
 

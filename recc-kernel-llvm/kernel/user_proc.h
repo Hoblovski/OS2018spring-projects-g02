@@ -16,21 +16,10 @@
     under the License.
 */
 
-#define PID_INIT 0
-#define PID_USER_PROC_1 1
-#define PID_CLOCK_COUNTER 2
-#define PID_UART1_OUT_READY_NOTIFIER 3
-#define PID_UART1_OUT_SERVER 4
-#define PID_UART1_IN_READY_NOTIFIER 5
-#define PID_UART1_IN_SERVER 6
-#define PID_COMMAND_SERVER 7
+#include "kernel_state.h"
 
-void user_proc_1(void);
-void clock_tick_counter(void);
-void uart1_out_ready_notifier(void);
-void uart1_out_server(void);
-void uart1_in_ready_notifier(void);
-void uart1_in_server(void);
-void command_server(void);
+void uart1_in_ksvc(void);
+void hello_msg_ksvc(void);
+void uart1_out_ksvc(void);
 
 #endif

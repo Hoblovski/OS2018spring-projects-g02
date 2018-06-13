@@ -77,14 +77,16 @@ uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport,
       assert(0);
     }
     pde_t pde = mem_lw(m, mmu_la2pa(m, (uint32_t) (pd + GET_PDIDX(la)), NULL, 0));
-    assert((pde & PDE_FLAGS_P) && "bad memory access: page table not present, pagefault not implemented\n");
+    if (!(pde & PDE_FLAGS_P))
+      Printf("[%08X] page table not present, pagefault not implemented, badva %08X\n", m->regs[REG_PC], la);
     pte_t* pt = (pte_t*) GET_PN(pde);
     if ((uint32_t) pt < KSEG_BEGIN) {
       Printf("[%08X] pagetable %08X in user space, bad useg addr %08X\n", m->regs[REG_PC], (uint32_t) pt, la);
       assert(0);
     }
     pte_t pte = mem_lw(m, mmu_la2pa(m, (uint32_t) (pt + GET_PTIDX(la)), NULL, 0));
-    assert((pte & PTE_FLAGS_P) && "bad memory access: page not present, pagefault not implemented\n");
+    if (!(pte & PTE_FLAGS_P))
+      Printf("[%08X] page not present, pagefault not implemented, badva %08X\n", m->regs[REG_PC], la);
     // now we get mapping: PN(la) -> PN(pte)
     te->vpn = GET_PN(la);
     te->ppn = GET_PN(pte);
