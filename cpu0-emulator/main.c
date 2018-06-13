@@ -59,7 +59,11 @@ void cpu_run(machine_t* m, unsigned n_cycles)
           req_rtn, req_rtn, req_rtn);
       fflush(stdout);
 #else
+#ifdef COLOR_OUTPUT
+      printf("%s%c%s", KGRN, req_rtn, KNRM);
+#else
       printf("%c", req_rtn);
+#endif
       fflush(stdout);
 #endif
     }
