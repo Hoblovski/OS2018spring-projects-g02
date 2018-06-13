@@ -42,7 +42,7 @@
 #define PAGE_FAULT_EXCEPTION_ASSERTED_BIT   (1u << 12u)
 #define PAGEING_ENABLE_BIT                  (1u << 13u)
 
-#define INITIAL_TIMER_PERIOD_VALUE 0xA000
+#define INITIAL_TIMER_PERIOD_VALUE 0x10000
 
 #define USEG_BEGIN 0
 #define KSEG_BEGIN 0xc0000000
@@ -81,5 +81,9 @@
 /* ensure that MAX_NUM_PROCESSES is an exponent of 2 */
 #define MAX_NUM_PROCESSES 8
 #define MAX_MSGS 20
+
+#define HELLO_MSG_PID_EXPECTED 1
+#define UART_IN_PID_EXPECTED 2
+#define UART_OUT_PID_EXPECTED 3
 
 #endif

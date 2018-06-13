@@ -50,14 +50,12 @@ void k_irq_handler(void);
 
 unsigned k_send_message(struct kernel_message * msg, unsigned dstpid);
 struct kernel_message* k_receive_message(void);
-
+void k_yield(enum process_state state);
 
 int putchar_nobusy(int);
 int getchar_nobusy(void);
 unsigned putchar_busy(unsigned);
 
-void save_context_to_kstack(void** kstack);
-void load_context_from_kstack(void** kstack);
 void use_pgdir(void* pgdir);
 
 unsigned calloc_page();

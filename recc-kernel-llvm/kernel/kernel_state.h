@@ -105,4 +105,8 @@ extern unsigned int init_stack[STACK_SIZE];
 extern unsigned n_pages;
 extern unsigned n_kpages;
 extern struct page* pages;
+
+// no one should ever modify them since assignment!
+extern unsigned uart1_in_pid;
+extern unsigned uart1_out_pid;
 #endif

@@ -36,3 +36,6 @@ struct process_control_block* idle_proc;
 struct page* pages;
 unsigned n_pages;
 unsigned n_kpages;
+
+unsigned uart1_in_pid;
+unsigned uart1_out_pid;

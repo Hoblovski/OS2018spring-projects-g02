@@ -4,46 +4,29 @@
 #include "public_kernel_interface.h"
 
 void hello_msg_ksvc(void){
-  printf("You're currently running a very simple microkernel that was built\n");
-  printf("for the purposes of demonstrating the 'One Page CPU' design, and\n");
-  printf("cross compiler collection.  This microkernel implements inter-process\n");
-  printf("communication, premptive context switching, interrupt based I/O, along\n");
-  printf("with a very simple timer that counts simulated clock ticks.\n");
-  printf("\nSome single-character commands include:\n\n");
-  printf("t -  Prints the number of simulated clock ticks since kernel start.\n");
-  printf("s -  Prints the stack pointer values of each task.\n");
-  printf("p -  Prints the priority of each task.\n");
-}
-
-void hello_msg_ksvc2(void){
-  while (1) {
-    struct kernel_message *msg = k_receive_message();
-    // TODO: maybe check for source id?
-    putchar_busy(msg->data);
-  }
+  printf("You're currently running the micro micro-kernel created\n");
+  printf("as the project of opearting systems course of Tsinghua \n");
+  printf("university. This micro micro-kernel implemented lab1,  \n");
+  printf("lab2, lab3, lab4, lab5 and possibly lab6.\n");
 }
 
 void uart1_in_ksvc(void){
-	while(1){
+  while(1){
     cur_proc->state = BLOCKED_ON_UART1_IN_READY;
     sched();
     unsigned ch = getchar_nobusy();
-    struct kernel_message msg;
-    msg.type = OTHER;
-    msg.data = ch;
-    k_send_message(&msg, 1);
+    struct kernel_message msg = {
+      .type = OTHER,
+      .data = ch
+    };
+    k_send_message(&msg, uart1_out_pid);
   }
 }
 
 void uart1_out_ksvc(void){
-  unsigned tot = 5;
-  putchar_busy('@');
-	while(1){
-    cur_proc->state = BLOCKED_ON_UART1_OUT_READY;
-    sched();
-    if (tot != 0) {
-      tot--;
-      putchar_nobusy('@');
-    }
+  while(1){
+    k_yield(BLOCKED_ON_UART1_OUT_READY);
+    struct kernel_message *msg = k_receive_message();
+    putchar_busy(msg->data);
   }
 }

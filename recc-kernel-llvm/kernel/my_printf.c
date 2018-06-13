@@ -46,8 +46,8 @@ void put_hex_uart(unsigned v, unsigned bigletter)
 // by default is busy
 unsigned printf_busy(const char* fmt, ...)
 {
-	va_list al;
-	va_start(al, fmt);
+  va_list al;
+  va_start(al, fmt);
 
   unsigned i = 0;
   unsigned spec_found = 0;
@@ -76,8 +76,8 @@ unsigned printf_busy(const char* fmt, ...)
     }
     fmt++;
   }
-	va_end(al);
-	return 0;
+  va_end(al);
+  return 0;
 }
 
 // direct printf using bkdoor of emulator
@@ -115,8 +115,8 @@ void put_hex_uart_direct(unsigned v, unsigned bigletter)
 
 unsigned printf_direct(const char* fmt, ...)
 {
-	va_list al;
-	va_start(al, fmt);
+  va_list al;
+  va_start(al, fmt);
 
   unsigned i = 0;
   unsigned spec_found = 0;
@@ -145,6 +145,6 @@ unsigned printf_direct(const char* fmt, ...)
     }
     fmt++;
   }
-	va_end(al);
-	return 0;
+  va_end(al);
+  return 0;
 }

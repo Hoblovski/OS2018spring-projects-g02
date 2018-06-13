@@ -24,30 +24,30 @@ select_task(enum process_state state)
 }
 
 void unblock_tasks_for_event(enum kernel_event event){
-	switch (event){
-		case CLOCK_TICK_EVENT:{
+  switch (event){
+    case CLOCK_TICK_EVENT:{
       struct process_control_block* unblocked_task = select_task(
           BLOCKED_ON_CLOCK_TICK);
       if (unblocked_task != NULL)
         unblocked_task->state = READY;
-			break;
-		}case UART1_OUT_READY:{
+      break;
+    }case UART1_OUT_READY:{
       struct process_control_block* unblocked_task = select_task(
           BLOCKED_ON_UART1_OUT_READY);
       if (unblocked_task != NULL)
         unblocked_task->state = READY;
       break;
-		}case UART1_IN_READY:{
+    }case UART1_IN_READY:{
       struct process_control_block* unblocked_task = select_task(
           BLOCKED_ON_UART1_IN_READY);
       if (unblocked_task != NULL)
         unblocked_task->state = READY;
       break;
-		}default:{
+    }default:{
       fatal(11); // bad event
-			break;
-		}
-	}
+      break;
+    }
+  }
   // a sched() can be here
 }
 
@@ -71,6 +71,11 @@ void clean_mm(struct process_control_block* pcb){
   or_into_flags_register(fr);
 }
 
+void k_yield(enum process_state state){
+  cur_proc->state = state;
+  sched();
+}
+
 void k_task_exit(void){
   if (cur_proc == idle_proc)
     fatal(40); // idle_proc can't exit
@@ -80,31 +85,31 @@ void k_task_exit(void){
 }
 
 void k_irq_handler(void){
-	unsigned int flags_register = read_flags_register();
+  unsigned int flags_register = read_flags_register();
   // wtf? compiler random behaviour?!
   unsigned ass;
-	if((ass = flags_register & PAGE_FAULT_EXCEPTION_ASSERTED_BIT)){
+  if((ass = flags_register & PAGE_FAULT_EXCEPTION_ASSERTED_BIT)){
     printf_direct("pf\n");
-		or_into_flags_register(HALTED_BIT); /*  Halt the processor for now */
-		/*  De-assert the bit last, so we can detect nested page fault exceptions */
+    or_into_flags_register(HALTED_BIT); /*  Halt the processor for now */
+    /*  De-assert the bit last, so we can detect nested page fault exceptions */
     // TODO
-		// deassert_bits_in_flags_register(PAGE_FAULT_EXCEPTION_ASSERTED_BIT);
-	}else if((ass = flags_register & UART1_OUT_ASSERTED_BIT)){
-		deassert_bits_in_flags_register(UART1_OUT_ASSERTED_BIT);
-		unblock_tasks_for_event(UART1_OUT_READY);
-	}else if((ass = flags_register & UART1_IN_ASSERTED_BIT)){
-		deassert_bits_in_flags_register(UART1_IN_ASSERTED_BIT);
-		unblock_tasks_for_event(UART1_IN_READY);
-	}else if((ass = flags_register & TIMER1_ASSERTED_BIT)){
+    // deassert_bits_in_flags_register(PAGE_FAULT_EXCEPTION_ASSERTED_BIT);
+  }else if((ass = flags_register & UART1_OUT_ASSERTED_BIT)){
+    deassert_bits_in_flags_register(UART1_OUT_ASSERTED_BIT);
+    unblock_tasks_for_event(UART1_OUT_READY);
+  }else if((ass = flags_register & UART1_IN_ASSERTED_BIT)){
+    deassert_bits_in_flags_register(UART1_IN_ASSERTED_BIT);
+    unblock_tasks_for_event(UART1_IN_READY);
+  }else if((ass = flags_register & TIMER1_ASSERTED_BIT)){
     if ((num_clock_ticks & 63) == 32)
       printf_direct("tick %x\n", num_clock_ticks);
-		deassert_bits_in_flags_register(TIMER1_ASSERTED_BIT);
-		num_clock_ticks++;
-		unblock_tasks_for_event(CLOCK_TICK_EVENT);
-	}else{
-		/*  Something really bad happend. */
+    deassert_bits_in_flags_register(TIMER1_ASSERTED_BIT);
+    num_clock_ticks++;
+    unblock_tasks_for_event(CLOCK_TICK_EVENT);
+  }else{
+    /*  Something really bad happend. */
     fatal(20);
-	}
+  }
   sched();
 }
 
@@ -145,13 +150,13 @@ struct kernel_message* k_receive_message(void) {
 }
 
 void set_irq_handler(void (*irq_handler_fcn)(void)){
-	void (**irq_handler_fcn_location)(void) = (void (**)(void))IRQ_HANDLER;
-	*irq_handler_fcn_location = irq_handler_fcn;
+  void (**irq_handler_fcn_location)(void) = (void (**)(void))IRQ_HANDLER;
+  *irq_handler_fcn_location = irq_handler_fcn;
 }
 
 void set_timer_period(unsigned int period){
-	unsigned int * period_location = (unsigned int *)TIMER_PERIOD;
-	*period_location = period;
+  unsigned int * period_location = (unsigned int *)TIMER_PERIOD;
+  *period_location = period;
 }
 
 void mm_init(){
@@ -294,14 +299,13 @@ void stupid_proc_init(void){
   idle_proc->priority = ~0u - 1; // least priority
   cur_proc = idle_proc;
 
-  // 1
-  create_kernel_thread(hello_msg_ksvc2, READY, ~0u-4);
-  // 2
   create_kernel_thread(hello_msg_ksvc, BLOCKED_ON_CLOCK_TICK, ~0u-3);
-  // 3
-  create_kernel_thread(uart1_in_ksvc, READY, ~0u-2);
-  // 4
-  create_kernel_thread(uart1_out_ksvc, READY, ~0u-2);
+  struct process_control_block* uart1_in_kthr = create_kernel_thread(
+      uart1_in_ksvc, READY, ~0u-2);
+  uart1_in_pid = uart1_in_kthr->pid;
+  struct process_control_block* uart1_out_kthr = create_kernel_thread(
+      uart1_out_ksvc, READY, ~0u-2);
+  uart1_out_pid = uart1_out_kthr->pid;
 }
 
 void sched(void)
@@ -331,20 +335,21 @@ void sched(void)
 }
 
 void k_kernel_init(void){
+  printf("(THU.CST) OS is loading\n");
+
   mm_init();
   stupid_proc_init();
 
-	set_irq_handler(irq_handler); /*  Set before paging is enabled, otherwise a page fault doesn't know where to go */
-	set_timer_period(INITIAL_TIMER_PERIOD_VALUE);
-	or_into_flags_register(TIMER1_ENABLE_BIT);
-	or_into_flags_register(UART1_OUT_ENABLE_BIT);
-	or_into_flags_register(UART1_IN_ENABLE_BIT);
-	or_into_flags_register(PAGEING_ENABLE_BIT);
+  set_irq_handler(irq_handler); /*  Set before paging is enabled, otherwise a page fault doesn't know where to go */
+  set_timer_period(INITIAL_TIMER_PERIOD_VALUE);
+  or_into_flags_register(TIMER1_ENABLE_BIT);
+  or_into_flags_register(UART1_OUT_ENABLE_BIT);
+  or_into_flags_register(UART1_IN_ENABLE_BIT);
+  or_into_flags_register(PAGEING_ENABLE_BIT);
   // this function won't go back to do_kernel_method
   //  so no eret, you have to enable interrupt your self
   or_into_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
 
   // finished, idle process keeps trying to scheduling to other tasks
-  printf_direct("Hello world\n");
   while (1) { }
 }
