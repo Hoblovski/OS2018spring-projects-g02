@@ -23,6 +23,8 @@
 #define TIMER_PERIOD     0xffff0030u
 #define PD_POINTER 0xffff0040
 #define PAGEFAULT_BADVA 0xffff0050
+#define SYSCALL_ID 0xffff0060
+#define SYSCALL_ARGS 0xffff0070
 
 #define HALTED_BIT                          (1u << 0u)
 #define GLOBAL_INTERRUPT_ENABLE_BIT         (1u << 1u)
@@ -40,6 +42,7 @@
 #define PRIVILEGE_BIT                       (1u << 11u)
 #define PAGE_FAULT_EXCEPTION_ASSERTED_BIT   (1u << 12u)
 #define PAGEING_ENABLE_BIT                  (1u << 13u)
+#define SYSCALL_BIT                         (1u << 14u)
 
 #define INITIAL_TIMER_PERIOD_VALUE 0x10000
 

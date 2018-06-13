@@ -26,6 +26,8 @@ static uint32_t map_port(uint32_t port_addr)
     case MEM_UART_OUT_DIRECT: return 16;
     case PD_POINTER: return 20;
     case PAGEFAULT_BADVA: return 24;
+    case SYSCALL_ID: return 28;
+    case SYSCALL_ARGS: return 32;
     default:
         if (IS_PORT(port_addr)) {
           Printf("unrecognized port address access: port_addr=%08X\n", port_addr);
@@ -42,7 +44,7 @@ uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport,
 {
   // check for privilege
   if (priv_chk && (m->regs[REG_FR] & FRBIT_PL) && IS_KLA(la)) {
-    if (la != MEM_UART_OUT_DIRECT) { // allow debugging output in user mode
+    if (la != MEM_UART_OUT_DIRECT && la != SYSCALL_ID && la != SYSCALL_ARGS) { // allow debugging output in user mode
       Printf("protection error: user code at %08X attemps to access ",
           m->regs[REG_PC]);
       if (IS_PORT(la)) 

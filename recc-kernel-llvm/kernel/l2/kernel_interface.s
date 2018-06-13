@@ -344,3 +344,65 @@ read_stack_register:
 $read_stack_register_end:
 	.size	read_stack_register, ($read_stack_register_end)-read_stack_register
 
+
+##############################################################################
+	.globl	syscall
+	.p2align	2
+	.type	syscall,@function
+	.ent	syscall
+syscall:
+	.set	noreorder
+	.set	nomacro
+
+  lui $t0, -1
+  sto $a0, 0x60($t0)      # save syscall id
+  sto $a1, 0x70($t0)      # save syscall args
+  addiu $fr, $fr, 0x4000  # bit 14
+  ret $lr
+
+	.set	macro
+	.set	reorder
+	.end	syscall
+$syscall_end:
+	.size	syscall, ($syscall_end)-syscall
+
+
+##############################################################################
+	.globl	read_syscall_id
+	.p2align	2
+	.type	read_syscall_id,@function
+	.ent	read_syscall_id
+read_syscall_id:
+	.set	noreorder
+	.set	nomacro
+
+  lui $t0, -1
+  loa $v0, 0x60($t0)      # save read_syscall_id id
+  ret $lr
+
+	.set	macro
+	.set	reorder
+	.end	read_syscall_id
+$read_syscall_id_end:
+	.size	read_syscall_id, ($read_syscall_id_end)-read_syscall_id
+
+
+##############################################################################
+	.globl	read_syscall_args
+	.p2align	2
+	.type	read_syscall_args,@function
+	.ent	read_syscall_args
+read_syscall_args:
+	.set	noreorder
+	.set	nomacro
+
+  lui $t0, -1
+  loa $v0, 0x70($t0)      # save read_syscall_id id
+  ret $lr
+
+	.set	macro
+	.set	reorder
+	.end	read_syscall_args
+$read_syscall_args_end:
+	.size	read_syscall_args, ($read_syscall_args_end)-read_syscall_args
+

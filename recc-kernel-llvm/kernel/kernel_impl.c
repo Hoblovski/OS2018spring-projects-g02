@@ -106,6 +106,11 @@ void k_irq_handler(void){
     deassert_bits_in_flags_register(TIMER1_ASSERTED_BIT);
     num_clock_ticks++;
     unblock_tasks_for_event(CLOCK_TICK_EVENT);
+  }else if ((ass = flags_register & SYSCALL_BIT)){
+    unsigned syscall_id = read_syscall_id();
+    unsigned syscall_args = read_syscall_args();
+    printf_direct("syscall %x %x", syscall_id, syscall_args);
+    deassert_bits_in_flags_register(SYSCALL_BIT);
   }else{
     /*  Something really bad happend. */
     fatal(20);
@@ -291,6 +296,7 @@ struct process_control_block* create_kernel_thread(void (*fn)(void),
 // creating user process
 struct process_control_block* create_process(
     void* text, unsigned textsize,
+    void* data, unsigned datasize,
     unsigned init_priority, enum process_state init_state){
   // compiler hack
   unsigned ass;
@@ -328,7 +334,16 @@ struct process_control_block* create_process(
     map_segment(proc->pgdir, ptr, pagepa);
     ptr += PAGE_SIZE;
   }
-  // TODO: data and bss
+  for (unsigned copied = 0; copied < datasize; copied += PAGE_SIZE) {
+    unsigned pagepa = (unsigned) calloc_page();
+    memcpyw((void*) PA2KLA(pagepa),
+        (void*) (((unsigned) data) + copied), // doesn't have to be page aligned
+        PAGE_SIZE>>2);  // might copy some extra garbage! bad protection
+    map_segment(proc->pgdir, ptr, pagepa);
+    ptr += PAGE_SIZE;
+  }
+  // no bss man
+  // hey we don't even have a disk, everything's in ram
 
   printf_direct("created process %x\n", proc->pid);
 
@@ -356,7 +371,7 @@ void stupid_proc_init(void){
       uart1_out_ksvc, READY, ~0u-3);
   uart1_out_pid = uart1_out_kthr->pid;
 
-  create_process(stupid, 1024, ~0u-2, READY);
+  create_process(stupid, 4096, NULL, 0, ~0u-2, READY);
 }
 
 void sched(void)

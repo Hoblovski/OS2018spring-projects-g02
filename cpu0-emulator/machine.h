@@ -40,6 +40,7 @@ typedef uint32_t reg_t[NUM_REGS];
 #define FRBIT_PL (1u<<11u)
 #define FRBIT_PAGEFAULT (1u<<12u)
 #define FRBIT_PAGING_ENABLE (1u << 13u)
+#define FRBIT_SYSCALL (1u << 14u)
 
 /******************************************************************************/
 // memory and io port
@@ -54,6 +55,8 @@ typedef uint8_t port_t[PORTSZ_BYTES];
 #define TIMER_PERIOD 0xffff0030
 #define PD_POINTER 0xffff0040
 #define PAGEFAULT_BADVA 0xffff0050
+#define SYSCALL_ID 0xffff0060
+#define SYSCALL_ARGS 0xffff0070
 #define MEM_UART_OUT_DIRECT 0xfffffff0
 
 #define KSEG_BEGIN 0xC0000000

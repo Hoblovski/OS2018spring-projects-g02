@@ -180,8 +180,8 @@ void dump_state(machine_t* m)
 
 // TODO: protection fault should halt machine? or trigger exception?
 #define WRITE_REG(m, rx, val) do {\
-  if (rx == REG_FR && (m->regs[REG_FR] & FRBIT_PL)) {\
-    Printf("protection error: user code at %08X attemps to write $fr\n", m->regs[REG_PC]);\
+  if (rx == REG_FR && (m->regs[REG_FR] & FRBIT_PL) && ((m->regs[REG_FR]^(val)) != FRBIT_SYSCALL)) {\
+    Printf("protection error: user code at %08X attemps to write %08X to $fr\n", m->regs[REG_PC], val);\
     assert(0);\
   }\
   m->regs[rx] = val;\
@@ -238,7 +238,7 @@ void exec_inst(machine_t* m, uint32_t inst)
       // hw addr v-p translation only happen with paging on
       pa = mmu_la2pa(m, la, &isport, 1);
       if (isport)
-        WRITE_REG(m, rx, port_lw(m, pa););
+        WRITE_REG(m, rx, port_lw(m, pa));
       else
         WRITE_REG(m, rx, mem_lw(m, pa));
       break;
@@ -353,6 +353,18 @@ void check_excep(machine_t* m)
   unsigned excep = 0;
   unsigned regfr = m->regs[REG_FR];
 
+  if (regfr & FRBIT_SYSCALL) {
+    if (!(regfr & FRBIT_PL)) {
+      Printf("[%08X] syscall in kernel mode\n", m->regs[REG_PC]);
+      assert(0);
+    }
+#ifdef EXCEP_WATCH
+    Printf("@ [%08X] syscall %d\n", m->regs[REG_PC], m->regs[11]);
+    dump_fr(m);
+    Printf("\n");
+#endif
+    excep = 1;
+  }
   if ((regfr & FRBIT_CLKEN) && (regfr & FRBIT_CLK)) {
     n_timint++;
 #ifdef EXCEP_WATCH
