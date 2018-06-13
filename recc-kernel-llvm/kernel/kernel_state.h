@@ -19,9 +19,7 @@
 #include "kernel_defs.h"
 
 enum process_state {
-  BLOCKED_ON_SEND            = 1,
-  BLOCKED_ON_RECEIVE         = 2,
-  BLOCKED_ON_REPLY           = 3,
+  BLOCKED_ON_MESSAGE         = 2,
   BLOCKED_ON_CLOCK_TICK      = 4,
   BLOCKED_ON_UART1_IN_READY  = 5,
   BLOCKED_ON_UART1_OUT_READY = 6,
@@ -39,7 +37,7 @@ enum kernel_event {
 
 enum kernel_message_type {
   UART1_IN_READY_NOTIFY, UART1_OUT_READY_NOTIFY, CLOCK_TICK_NOTIFY,
-  MESSAGE_ACKNOWLEDGED, OUTPUT_CHARACTER
+  MESSAGE_ACKNOWLEDGED, OUTPUT_CHARACTER, OTHER
 };
 
 
@@ -48,9 +46,9 @@ typedef unsigned pde_t;
 
 
 struct kernel_message{
-	enum kernel_message_type message_type;
+	enum kernel_message_type type;
 	unsigned int data;
-	unsigned int source_id;
+	unsigned int src_pid;
 };
 
 
@@ -65,8 +63,6 @@ struct task_queue {
 struct message_queue {
 	unsigned int start;
 	unsigned int end;
-	unsigned int current_count;
-	unsigned int size;
 	struct kernel_message items[MAX_NUM_PROCESSES];
 };
 
@@ -82,9 +78,7 @@ struct process_control_block{
 	enum process_state state;
 	unsigned int pid;
 	unsigned int priority;
-	struct message_queue messages;
-	struct kernel_message * reply_message;
-	struct kernel_message * recieve_message;
+  struct message_queue mq;
 };
 
 

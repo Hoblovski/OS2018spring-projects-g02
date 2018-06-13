@@ -11,4 +11,6 @@
 
 void load_auto(unsigned load_type, const char* filename, machine_t* rv);
 
+extern unsigned img_sz;
+
 #endif // LOADER_H

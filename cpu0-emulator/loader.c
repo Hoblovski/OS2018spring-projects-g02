@@ -3,6 +3,8 @@
 
 static uint8_t img[MAX_IMG_SZ];
 
+unsigned img_sz = 0;
+
 void load_elf(const char* filename, machine_t* rv)
 {
   assert(0 && "for raw machines, load elf is disabled");
@@ -18,6 +20,7 @@ void load_imgz(const char* filename, machine_t* rv) {
   assert(n_read < MEMSZ_BYTES && "image too big for memory");
   printf("loaded raw memory image (%d bytes)\n", n_read);
   memcpy(rv->mem, img, n_read);
+  img_sz = n_read;
 }
 
 

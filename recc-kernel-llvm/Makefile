@@ -10,7 +10,7 @@ SINCLUDE_DIR := include
 # 	then puts main and schedule_next_task both at 0x0
 # I've tried the input section  entry.o(.text),
 # 	but the linker does not know this command. (llvm 3.9's problem?)
-OBJS := entry kernel_impl kernel_state my_printf queue user_proc\
+OBJS := entry kernel_impl kernel_state my_printf queue user_proc memman\
 	getchar_nobusy iehandling kernel_interface putchar_busy putchar_nobusy
 OBJS := $(addprefix ${BUILD_DIR}/, ${OBJS})
 OBJS := $(addsuffix .o, ${OBJS})
@@ -20,7 +20,7 @@ LLVM_BUILD_DIR := ../llvm-3.9.0.src/build/bin
 LD             := ${LLVM_BUILD_DIR}/ld.lld
 LD_FLAGS       := -T script.ld -e main -o a.out
 CLANG          := clang # use system clang, we don't use custom frontend
-CLANG_FLAGS    := -target mips-unknown-linux-gnu -O0 -emit-llvm -isystem${SINCLUDE_DIR} -nostdinc
+CLANG_FLAGS    := -target mips-unknown-linux-gnu -O0 -emit-llvm -isystem${SINCLUDE_DIR} -nostdinc -Wno-incompatible-library-redeclaration
 LLC            := ${LLVM_BUILD_DIR}/llc
 LLC_FLAGS      := -march=cpu0el -relocation-model=static
 LLAS           := ${LLVM_BUILD_DIR}/llvm-mc

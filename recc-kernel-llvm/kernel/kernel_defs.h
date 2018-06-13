@@ -80,5 +80,6 @@
 
 /* ensure that MAX_NUM_PROCESSES is an exponent of 2 */
 #define MAX_NUM_PROCESSES 8
+#define MAX_MSGS 20
 
 #endif

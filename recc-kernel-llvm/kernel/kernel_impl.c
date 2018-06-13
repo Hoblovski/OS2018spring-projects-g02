@@ -1,37 +1,13 @@
-/*
-    Copyright 2016 Robert Elder Software Inc.
-
-    Licensed under the Apache License, Version 2.0 (the "License"); you may not
-    use this file except in compliance with the License.  You may obtain a copy
-    of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
-    License for the specific language governing permissions and limitations
-    under the License.
-*/
 #include "printf.h"
 #include "private_kernel_interface.h"
 #include "user_proc.h"
 #include "queue.h"
+#include "memman.h"
 
 unsigned int current_task_id = 0;
 unsigned int num_clock_ticks = 0;
 unsigned int saved_uart1_out_ready = 0;
 unsigned int saved_uart1_in_ready = 0;
-
-static void memset(unsigned* ptr, unsigned val, unsigned len){
-  for (unsigned* i = ptr; i < ptr + len; i++)
-    *i = 0;
-}
-
-static void memcpy(unsigned* dst, unsigned* src, unsigned len){
-  while (len-- != 0)
-    *(dst++) = *(src++);
-}
 
 static struct process_control_block*
 select_task(enum process_state state)
@@ -103,14 +79,6 @@ void k_task_exit(void){
   sched();
 }
 
-void k_release_processor(void){
-  fatal(24);
-}
-
-void k_block_on_event(enum kernel_event event){
-  fatal(24);
-}
-
 void k_irq_handler(void){
 	unsigned int flags_register = read_flags_register();
   // wtf? compiler random behaviour?!
@@ -140,20 +108,40 @@ void k_irq_handler(void){
   sched();
 }
 
-void k_send_message(struct kernel_message * message, unsigned int destination_pid, struct kernel_message * reply){
-  fatal(25);
+unsigned k_send_message(struct kernel_message * msg, unsigned dstpid){
+  // msg must already be in kernel space
+  struct process_control_block* dstproc = &(pcbs[dstpid]);
+  msg->src_pid = cur_proc->pid;
+  if (msg != NULL && dstproc->state == BLOCKED_ON_MESSAGE 
+      && message_queue_size(&(dstproc->mq)) < MAX_NUM_PROCESSES - 1) {
+    unsigned fr = read_flags_register() & GLOBAL_INTERRUPT_ENABLE_BIT;
+    deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
+    { // interrupt not enabled
+      message_queue_push(&(dstproc->mq), msg);
+    }
+    or_into_flags_register(fr);
+    dstproc->state = READY;
+    return 0;
+  } else {
+    return 1;
+  }
 }
 
-void k_receive_message(struct kernel_message * message){
-  fatal(26);
-}
-
-void k_reply_message(struct kernel_message * message, unsigned int destination_pid){
-  fatal(27);
-}
-
-void k_kernel_exit(void){
-  fatal(28);
+struct kernel_message* k_receive_message(void) {
+  if (message_queue_size(&(cur_proc->mq)) != 0)
+    return message_queue_pop(&(cur_proc->mq));
+  cur_proc->state = BLOCKED_ON_MESSAGE;
+  sched();
+  if (message_queue_size(&(cur_proc->mq)) == 0)
+    fatal(41);
+  struct kernel_message* rv = NULL;
+  unsigned fr = read_flags_register() & GLOBAL_INTERRUPT_ENABLE_BIT;
+  deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
+  { // interrupt not enabled
+    rv = message_queue_pop(&(cur_proc->mq));
+  }
+  or_into_flags_register(fr);
+  return rv;
 }
 
 void set_irq_handler(void (*irq_handler_fcn)(void)){
@@ -277,9 +265,7 @@ struct process_control_block* alloc_proc(void) {
   pcbs[rv].ustack = NULL;
   pcbs[rv].kstack = NULL;
   pcbs[rv].priority = ~0u;
-  message_queue_init(&(pcbs[rv].messages), MAX_NUM_PROCESSES);
-  pcbs[rv].reply_message = NULL;
-  pcbs[rv].recieve_message = NULL;
+  message_queue_init(&(pcbs[rv].mq));
   return &(pcbs[rv]);
 }
 
@@ -300,7 +286,7 @@ void stupid_proc_init(void){
   for (unsigned i = 0; i < MAX_NUM_PROCESSES; i++)
     pcbs[i].state = NOT_ALLOCATED;
 
-  // idle thread
+  // idle thread 0
   idle_proc = alloc_proc();
   idle_proc->kstack = (void*) ((unsigned) init_stack + PAGE_SIZE - 4);
   idle_proc->state = READY; // idle is right running
@@ -308,8 +294,13 @@ void stupid_proc_init(void){
   idle_proc->priority = ~0u - 1; // least priority
   cur_proc = idle_proc;
 
-  create_kernel_thread(hello_msg_ksvc, BLOCKED_ON_CLOCK_TICK, ~0u-2);
+  // 1
+  create_kernel_thread(hello_msg_ksvc2, READY, ~0u-4);
+  // 2
+  create_kernel_thread(hello_msg_ksvc, BLOCKED_ON_CLOCK_TICK, ~0u-3);
+  // 3
   create_kernel_thread(uart1_in_ksvc, READY, ~0u-2);
+  // 4
   create_kernel_thread(uart1_out_ksvc, READY, ~0u-2);
 }
 

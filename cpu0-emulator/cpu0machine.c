@@ -1,5 +1,6 @@
 #include "machine.h"
 #include "common.h"
+#include "loader.h"
 
 #include <string.h>
 #include <assert.h>
@@ -248,7 +249,7 @@ void exec_inst(machine_t* m, uint32_t inst)
 //    TODO: add check similar as below, when the kernel image can not have
 //      protection modes
 //
-      if (0xC0000000 <= la && la < 0xc0001c40)
+      if (0xC0000000 <= la && la < img_sz)
           fatal("\n>>> PC=%08X la=%08X val=%08X writing to .text or .rodata!\n",
               m->regs[REG_PC], la, m->regs[rx]);
 
