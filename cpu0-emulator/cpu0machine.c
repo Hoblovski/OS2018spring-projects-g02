@@ -205,8 +205,6 @@ void exec_inst(machine_t* m, uint32_t inst)
   if (n_timint > 0) {
 #endif
     dump_inst(m, inst);
-    // DEBUG
-    printf("& %08X %08X\n", m->regs[REG_SP], m->regs[REG_EPC]);
 #ifdef INSTR_WATCH_START_FROM_FIRST_TIMERINT
   }
 #endif
@@ -246,13 +244,10 @@ void exec_inst(machine_t* m, uint32_t inst)
       break;
     case OPCODE_ST:
       la = m->regs[ry] + immsext;
-//    TODO: add check similar as below, when the kernel image can not have
-//      protection modes
-//
+      // now assume that there're only .text and .rodata in the image
       if (0xC0000000 <= la && la < img_sz)
           fatal("\n>>> PC=%08X la=%08X val=%08X writing to .text or .rodata!\n",
               m->regs[REG_PC], la, m->regs[rx]);
-
       pa = mmu_la2pa(m, la, &isport, 1);
       if (isport)
         port_sw(m, pa, m->regs[rx]);
@@ -323,6 +318,7 @@ void check_excep(machine_t* m)
 {
   if (m->regs[REG_FR] & FRBIT_HALT) {
     Printf("*** Fatal error! Errno=%d\n", m->regs[11]);
+    dump_state(m);
     exit(m->regs[11]);
   }
   // check for ERET
@@ -335,9 +331,9 @@ void check_excep(machine_t* m)
         "eret in user mode. have you checked writing to fr in user mode?");
     m->regs[REG_FR] &= ~FRBIT_ERET;
     m->regs[REG_FR] |= FRBIT_GIE; // enable interrupts
-    m->regs[REG_PC] = m->regs[REG_EPC];
-    // XXX: eflags stored in memory, not suitable for hardware implementation
-    if (port_lw(m, mmu_la2pa(m, EFLAGS, NULL, 0)) & FRBIT_PL) {
+    m->regs[REG_PC] = m->regs[REG_EPC] & ~3;
+    // epc lowest byte: coming from user mode or not
+    if (m->regs[REG_EPC] & 1) {
       // in user mode before exception, return to user mode
       m->regs[REG_FR] |= FRBIT_PL;
     } else {
@@ -387,7 +383,8 @@ void check_excep(machine_t* m)
     return;
 
   m->regs[REG_EPC] = m->regs[REG_PC];
-  port_sw(m, mmu_la2pa(m, EFLAGS, NULL, 0), m->regs[REG_FR]); // save eflags
+  if (m->regs[REG_FR] & FRBIT_PL)
+    m->regs[REG_EPC] |= 1;
   m->regs[REG_FR] &= ~(FRBIT_GIE | FRBIT_PL);  // disable interrupts, enter kernel mode
   m->regs[REG_PC] = port_lw(m, mmu_la2pa(m, IRQ_HANDLER, NULL, 0)); // goto irq handler
 }

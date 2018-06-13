@@ -138,7 +138,7 @@ struct kernel_message* k_receive_message(void) {
   cur_proc->state = BLOCKED_ON_MESSAGE;
   sched();
   if (message_queue_size(&(cur_proc->mq)) == 0)
-    fatal(41);
+    fatal(42);
   struct kernel_message* rv = NULL;
   unsigned fr = read_flags_register() & GLOBAL_INTERRUPT_ENABLE_BIT;
   deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
@@ -166,7 +166,6 @@ void mm_init(){
   n_pages = MEMSIZE >> PAGE_SIZE_WIDTH;
   n_kpages = KMEMSIZE >> PAGE_SIZE_WIDTH;
   // always reserve the first n_kpages for kernel
-  //  TODO: is this a stupid design?
   for (unsigned i = 0; i < n_kpages; i++) {
     pages[i].ref = 0;   // for reserved ones, ref won't be used
     pages[i].flags = PF_KRESERVE;
@@ -192,7 +191,7 @@ unsigned calloc_page(){
       }
       or_into_flags_register(fr);
       // zero alloc'ed page
-      memset(PA2KLA((unsigned*) (i<<PTSHIFT)), 0, (1<<(PTSHIFT-2)));
+      memsetw((void*) PA2KLA((unsigned) (i<<PTSHIFT)), 0, PAGE_SIZE>>2);
       return (i<<PAGE_SIZE_WIDTH);
     }
   fatal(17); // out of memory
@@ -243,6 +242,7 @@ pte_t* get_pte(pde_t* pd, unsigned la, unsigned alloc_for_pt){
 //  if la is not mapped to pa (either not mapped or mapped to another place)
 //  then establish a mapping from la to pa
 void map_segment(pde_t* pd, unsigned la, unsigned pa) {
+  printf_direct("map seg: la %x  -> pa %x\n", la, pa);
   if (GET_POFFSET(la) != GET_POFFSET(pa))
     fatal(18);
   la = GET_PN(la);
@@ -252,7 +252,8 @@ void map_segment(pde_t* pd, unsigned la, unsigned pa) {
   if (GET_PN(*pte) == pa) {
     // present, la maps to pa
   } else {
-    release_page(GET_PN(*pte));
+    if (GET_PN(*pte) != 0)
+      release_page(GET_PN(*pte));
     // offset of *pte is the flags
     *pte = pa | GET_POFFSET(*pte) | PTE_FLAGS_P;
   }
@@ -282,8 +283,55 @@ struct process_control_block* create_kernel_thread(void (*fn)(void),
   proc->ustack = 0;
   proc->state = init_state;
   proc->priority = init_priority;
-  // TODO: message buffer
   init_kstack(&(proc->kstack), fn);
+  printf_direct("created kernel thread %x\n", proc->pid);
+  return proc;
+}
+
+// creating user process
+struct process_control_block* create_process(
+    void* text, unsigned textsize,
+    unsigned init_priority, enum process_state init_state){
+  // compiler hack
+  unsigned ass;
+  if ((ass = textsize & 3))
+    fatal(44);
+
+  struct process_control_block* proc = alloc_proc();
+
+  proc->pgdir = (void*) PA2KLA((unsigned) calloc_page());
+
+  proc->kstack = (void*) PA2KLA((unsigned) calloc_page()) + PAGE_SIZE - 4;
+  init_ukstack(&(proc->kstack));
+
+  unsigned ustackpa = (unsigned) calloc_page();
+  proc->ustack = (void*) PA2KLA(ustackpa + PAGE_SIZE - 4); // now kla
+  init_ustack(&(proc->ustack), 0x40000);
+  proc->ustack = (void*) (GET_PN(KSEG_BEGIN - PAGE_SIZE) 
+      | GET_POFFSET((unsigned) proc->ustack));
+  printf_direct("ustack %x\n", proc->ustack);
+  map_segment(proc->pgdir, GET_PN((unsigned) proc->ustack), ustackpa);
+
+  proc->state = init_state;
+  proc->priority = init_priority;
+
+  // XXX: big hack
+  //  don't begin from 0, NULL points to 0
+  //  also better not value too small; people make mistakes,
+  //  e.g. forget to add `&`.
+  unsigned ptr = 0x40000;
+  for (unsigned copied = 0; copied < textsize; copied += PAGE_SIZE) {
+    unsigned pagepa = (unsigned) calloc_page();
+    memcpyw((void*) PA2KLA(pagepa),
+        (void*) (((unsigned) text) + copied), // doesn't have to be page aligned
+        PAGE_SIZE>>2);  // might copy some extra garbage! bad protection
+    map_segment(proc->pgdir, ptr, pagepa);
+    ptr += PAGE_SIZE;
+  }
+  // TODO: data and bss
+
+  printf_direct("created process %x\n", proc->pid);
+
   return proc;
 }
 
@@ -299,13 +347,16 @@ void stupid_proc_init(void){
   idle_proc->priority = ~0u - 1; // least priority
   cur_proc = idle_proc;
 
-  create_kernel_thread(hello_msg_ksvc, BLOCKED_ON_CLOCK_TICK, ~0u-3);
+
+  create_kernel_thread(hello_msg_ksvc, BLOCKED_ON_CLOCK_TICK, ~0u-4);
   struct process_control_block* uart1_in_kthr = create_kernel_thread(
-      uart1_in_ksvc, READY, ~0u-2);
+      uart1_in_ksvc, READY, ~0u-3);
   uart1_in_pid = uart1_in_kthr->pid;
   struct process_control_block* uart1_out_kthr = create_kernel_thread(
-      uart1_out_ksvc, READY, ~0u-2);
+      uart1_out_ksvc, READY, ~0u-3);
   uart1_out_pid = uart1_out_kthr->pid;
+
+  create_process(stupid, 1024, ~0u-2, READY);
 }
 
 void sched(void)
@@ -316,11 +367,12 @@ void sched(void)
     // select process `next_proc` to swap in
     struct process_control_block* next_proc = NULL;
     unsigned min_priority = ~0u;
-    for (unsigned i = 0; i < MAX_NUM_PROCESSES; i++)
+    for (unsigned i = 0; i < MAX_NUM_PROCESSES; i++) {
       if (pcbs[i].state == READY && pcbs[i].priority < min_priority) {
         min_priority = pcbs[i].priority;
         next_proc = &(pcbs[i]);
       }
+    }
     //
     if (cur_proc->pid != next_proc->pid)
       printf_direct("sched %x -> %x\n", cur_proc->pid, next_proc->pid);
@@ -335,10 +387,9 @@ void sched(void)
 }
 
 void k_kernel_init(void){
-  printf("(THU.CST) OS is loading\n");
+  printf_direct("(THU.CST) OS is loading\n");
 
   mm_init();
-  stupid_proc_init();
 
   set_irq_handler(irq_handler); /*  Set before paging is enabled, otherwise a page fault doesn't know where to go */
   set_timer_period(INITIAL_TIMER_PERIOD_VALUE);
@@ -346,10 +397,13 @@ void k_kernel_init(void){
   or_into_flags_register(UART1_OUT_ENABLE_BIT);
   or_into_flags_register(UART1_IN_ENABLE_BIT);
   or_into_flags_register(PAGEING_ENABLE_BIT);
+
+  stupid_proc_init();
+
   // this function won't go back to do_kernel_method
   //  so no eret, you have to enable interrupt your self
   or_into_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
 
-  // finished, idle process keeps trying to scheduling to other tasks
+  // idle keeps looping
   while (1) { }
 }

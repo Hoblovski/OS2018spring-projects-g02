@@ -30,3 +30,15 @@ void uart1_out_ksvc(void){
     putchar_busy(msg->data);
   }
 }
+
+void stupid(){
+  unsigned n_iter = 0;
+  while (1) {
+    n_iter++;
+    // compiler hack
+    unsigned ass;
+    if ((ass = n_iter & 0x3FFF) == 0) {
+      *(unsigned*) 0xFFFFFFF0 = '~';
+    }
+  }
+}

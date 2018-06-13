@@ -23,7 +23,6 @@
 #define TIMER_PERIOD     0xffff0030u
 #define PD_POINTER 0xffff0040
 #define PAGEFAULT_BADVA 0xffff0050
-#define EFLAGS 0xffff0060
 
 #define HALTED_BIT                          (1u << 0u)
 #define GLOBAL_INTERRUPT_ENABLE_BIT         (1u << 1u)

@@ -54,7 +54,6 @@ typedef uint8_t port_t[PORTSZ_BYTES];
 #define TIMER_PERIOD 0xffff0030
 #define PD_POINTER 0xffff0040
 #define PAGEFAULT_BADVA 0xffff0050
-#define EFLAGS 0xffff0060
 #define MEM_UART_OUT_DIRECT 0xfffffff0
 
 #define KSEG_BEGIN 0xC0000000
@@ -67,14 +66,14 @@ typedef uint8_t port_t[PORTSZ_BYTES];
 // hw involved in paging
 //
 // pte structure:
-//    22        2         8
+//    20        4         8
 //    framebase reserved  flags
 typedef uint32_t pde_t;
 typedef uint32_t pte_t;
-#define PDSHIFT 21
-#define PTMASK 0x7FF
-#define PTSHIFT 10
-#define POFFSETMASK 0x3FF
+#define PDSHIFT 22
+#define PTMASK ((1<<(PDSHIFT-PTSHIFT))-1)
+#define PTSHIFT 12
+#define POFFSETMASK ((1<<PTSHIFT)-1)
 #define GET_PDIDX(addr) ((addr) >> PDSHIFT)
 #define GET_PTIDX(addr) (((addr) >> PTSHIFT) & PTMASK)
 #define GET_PN(addr) ((addr) & ~POFFSETMASK)

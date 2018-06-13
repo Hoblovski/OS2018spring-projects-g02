@@ -47,6 +47,7 @@ void k_kernel_exit(void);
 void k_kernel_init(void);
 void irq_handler(void);
 void k_irq_handler(void);
+void irq_ret(void);
 
 unsigned k_send_message(struct kernel_message * msg, unsigned dstpid);
 struct kernel_message* k_receive_message(void);

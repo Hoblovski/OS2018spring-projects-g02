@@ -88,22 +88,26 @@ irq_handler:
 # epc 被保存到当前栈上.
 # 虽然后面把当前 $sp 保存到 cur_proc->ustack,
 # 但是这不意味当前栈一定是用户栈, 当前栈仍然可能是内核栈
+#
+# 这里有一个问题, 就是我们必须允许内核访问用户内存
+#   虽说内核一般非常可靠安全可信任, 但是没有隔离总让人不放心
+#   Linux 都是需要 copy from user copy to user 的
   addiu $sp, $sp, -4
   sto $epc, 0($sp)
 
 # 保存 GPR 到 current 栈上
   addiu $sp, $sp, -44
-  sto $v0, 0($sp)
-  sto $v1, 4($sp)
-  sto $a0, 8($sp)
-  sto $a1, 12($sp)
-  sto $s0, 16($sp)
+  sto $v0, 40($sp)
+  sto $v1, 36($sp)
+  sto $a0, 32($sp)
+  sto $a1, 28($sp)
+  sto $s0, 24($sp)
   sto $s1, 20($sp)
-  sto $t0, 24($sp)
-  sto $t1, 28($sp)
-  sto $t2, 32($sp)
-  sto $fp, 36($sp)
-  sto $lr, 40($sp)
+  sto $t0, 16($sp)
+  sto $t1, 12($sp)
+  sto $t2, 8($sp)
+  sto $fp, 4($sp)
+  sto $lr, 0($sp)
 
   lui $t0, %hi(cur_proc)
   ori $t0, $t0, %lo(cur_proc)
@@ -111,14 +115,11 @@ irq_handler:
   sto $sp, 0($t0)         # cur_proc->ustack = $sp
 
   # 判断是不是用户态过来的, 如果是, 那么切换到 (为空的) 内核栈
-  lui $t0, -1
-  loa $t0, 0x60($t0)
-  addiu $t1, $zr, 2048
-  and $t0, $t0, $t1
-  beq $t0, $zr, $f2
+  addiu $t1, $zr, 1
+  and $t1, $epc, $t1
+  beq $t1, $zr, $f2
 
-  addiu $a0, $zr, -2
-  addiu $fr, $fr, 1     # 现在还没有用户态太好的支持
+  loa $sp, 4($t0)         # $sp = cur_proc->kstack
 
 $f2:
 # 跳转到服务例程
@@ -129,6 +130,8 @@ $f2:
 # ...
 # 从服务例程返回回来
 
+	.globl	irq_ret
+	.p2align	2
 irq_ret:
 # 切换到应用栈
   lui	$t0, %hi(cur_proc)
@@ -139,17 +142,17 @@ irq_ret:
 
 do_eret:
 # 恢复 GPR
-  loa $v0, 0($sp)
-  loa $v1, 4($sp)
-  loa $a0, 8($sp)
-  loa $a1, 12($sp)
-  loa $s0, 16($sp)
+  loa $v0, 40($sp)
+  loa $v1, 36($sp)
+  loa $a0, 32($sp)
+  loa $a1, 28($sp)
+  loa $s0, 24($sp)
   loa $s1, 20($sp)
-  loa $t0, 24($sp)
-  loa $t1, 28($sp)
-  loa $t2, 32($sp)
-  loa $fp, 36($sp)
-  loa $lr, 40($sp)
+  loa $t0, 16($sp)
+  loa $t1, 12($sp)
+  loa $t2, 8($sp)
+  loa $fp, 4($sp)
+  loa $lr, 0($sp)
   addiu $sp, $sp, 44
 
 # epc 被保存到用户栈上
@@ -167,18 +170,18 @@ $irq_handler_end:
 
 
 
-	.globl	proc_start
+	.globl	kproc_start
 	.p2align	2
-	.type	proc_start,@function
-	.ent	proc_start
-proc_start:
+	.type	kproc_start,@function
+	.ent	kproc_start
+kproc_start:
 	.set	noreorder
 	.set	nomacro
   
   # on entry, a0 should hold the entry point
 
   # enable interrupts
-  #   proc_start is from switch_kstack, during which interrupts are disabled
+  #   kproc_start is from switch_kstack, during which interrupts are disabled
   addiu $t0, $zr, 2
   or $fr, $fr, $t0    
 
@@ -190,6 +193,6 @@ proc_start:
 
 	.set	macro
 	.set	reorder
-	.end	proc_start
-$proc_start_end:
-	.size	proc_start, ($proc_start_end)-proc_start
+	.end	kproc_start
+$kproc_start_end:
+	.size	kproc_start, ($kproc_start_end)-kproc_start

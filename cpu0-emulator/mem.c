@@ -16,7 +16,7 @@ tlbent_t* tlb_lookfor(machine_t* m, uint32_t la)
 }
 
 
-static uint32_t map_port_noassert(uint32_t port_addr)
+static uint32_t map_port(uint32_t port_addr)
 {
   switch (port_addr) {
     case UART1_IN: return 0;
@@ -26,8 +26,13 @@ static uint32_t map_port_noassert(uint32_t port_addr)
     case MEM_UART_OUT_DIRECT: return 16;
     case PD_POINTER: return 20;
     case PAGEFAULT_BADVA: return 24;
-    case EFLAGS: return 28;
-    default: return ~0u;
+    default:
+        if (IS_PORT(port_addr)) {
+          Printf("unrecognized port address access: port_addr=%08X\n", port_addr);
+          assert(0);
+        } else { 
+          return ~0u;
+        }
   }
 }
 
@@ -37,7 +42,7 @@ uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport,
 {
   // check for privilege
   if (priv_chk && (m->regs[REG_FR] & FRBIT_PL) && IS_KLA(la)) {
-    if (la != MEM_UART_OUT_DIRECT) // allow debugging output in user mode
+    if (la != MEM_UART_OUT_DIRECT) { // allow debugging output in user mode
       Printf("protection error: user code at %08X attemps to access ",
           m->regs[REG_PC]);
       if (IS_PORT(la)) 
@@ -45,9 +50,10 @@ uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport,
       else
         Printf("kvaddr %08X\n", la);
       assert(0);
+    }
   }
   // check for address mapped to io ports
-  uint32_t port_addr = map_port_noassert(la);
+  uint32_t port_addr = map_port(la);
   if (port_addr != ~0u) {
     if (isport) *isport = 1;
     return port_addr;
@@ -77,16 +83,27 @@ uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport,
       assert(0);
     }
     pde_t pde = mem_lw(m, mmu_la2pa(m, (uint32_t) (pd + GET_PDIDX(la)), NULL, 0));
-    if (!(pde & PDE_FLAGS_P))
+    if (!(pde & PDE_FLAGS_P)) {
       Printf("[%08X] page table not present, pagefault not implemented, badva %08X\n", m->regs[REG_PC], la);
+      Printf("pagedir dump:\n");
+      for (int i = 0; i < 1024; i++) {
+        pde = mem_lw(m, mmu_la2pa(m, (uint32_t) (pd + i), NULL, 0));
+        if (pde != 0)
+          Printf("%03X %08X\n", i, pde);
+      }
+      Printf("invalid pdidx: %03X\n", GET_PDIDX(la));
+      assert(0);
+    }
     pte_t* pt = (pte_t*) GET_PN(pde);
     if ((uint32_t) pt < KSEG_BEGIN) {
       Printf("[%08X] pagetable %08X in user space, bad useg addr %08X\n", m->regs[REG_PC], (uint32_t) pt, la);
       assert(0);
     }
     pte_t pte = mem_lw(m, mmu_la2pa(m, (uint32_t) (pt + GET_PTIDX(la)), NULL, 0));
-    if (!(pte & PTE_FLAGS_P))
+    if (!(pte & PTE_FLAGS_P)) {
       Printf("[%08X] page not present, pagefault not implemented, badva %08X\n", m->regs[REG_PC], la);
+      assert(0);
+    }
     // now we get mapping: PN(la) -> PN(pte)
     te->vpn = GET_PN(la);
     te->ppn = GET_PN(pte);
@@ -154,7 +171,7 @@ void port_sw(machine_t* m, uint32_t port_addr, uint32_t v)
     assert(0);
   }
 #ifdef WATCH_UART_OUT_DIRECT
-  if (port_addr == map_port_noassert(MEM_UART_OUT_DIRECT))
+  if (port_addr == map_port(MEM_UART_OUT_DIRECT))
 #ifdef COLOR_OUTPUT
     Printf("%s%c%s", KBLU, v, KNRM);
 #else

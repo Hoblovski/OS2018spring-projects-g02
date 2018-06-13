@@ -12,7 +12,7 @@ void message_queue_push(struct message_queue * mq, struct kernel_message* item){
     fatal(15); // Message mq is full.
   }
 
-  memcpy(&(mq->items[mq->end]), item, sizeof(struct kernel_message));
+  memcpyw(&(mq->items[mq->end]), item, sizeof(struct kernel_message) >> 2);
   mq->end = ((mq->end+1) & (MAX_NUM_PROCESSES-1));
 }
 

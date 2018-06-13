@@ -7,5 +7,6 @@ void uart1_in_ksvc(void);
 void hello_msg_ksvc(void);
 void uart1_out_ksvc(void);
 void hello_msg_ksvc2(void);
+void stupid();
 
 #endif
