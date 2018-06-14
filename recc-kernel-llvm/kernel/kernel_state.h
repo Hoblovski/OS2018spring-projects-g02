@@ -36,8 +36,7 @@ enum kernel_event {
 
 
 enum kernel_message_type {
-  UART1_IN_READY_NOTIFY, UART1_OUT_READY_NOTIFY, CLOCK_TICK_NOTIFY,
-  MESSAGE_ACKNOWLEDGED, OUTPUT_CHARACTER, OTHER, REPLY
+  OTHER, REPLY, UARTINREG
 };
 
 
@@ -49,14 +48,6 @@ struct kernel_message{
 	enum kernel_message_type type;
 	unsigned int data;
 	unsigned int src_pid;
-};
-
-
-struct task_queue {
-	unsigned int start;
-	unsigned int end;
-	unsigned int current_count;
-	void * items[MAX_NUM_PROCESSES];
 };
 
 
@@ -87,15 +78,6 @@ struct page {
   unsigned flags;
 };
 
-
-extern struct task_queue ready_queue_p0;
-extern struct task_queue ready_queue_p1;
-extern struct task_queue ready_queue_p2;
-extern struct task_queue ready_queue;
-extern struct task_queue zombie_queue;
-extern struct task_queue blocked_on_clock_tick_queue;
-extern struct task_queue blocked_on_uart1_out_ready_queue;
-extern struct task_queue blocked_on_uart1_in_ready_queue;
 
 extern struct process_control_block pcbs[MAX_NUM_PROCESSES];
 extern struct process_control_block* cur_proc;

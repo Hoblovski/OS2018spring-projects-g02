@@ -16,18 +16,6 @@
 #include "kernel_state.h"
 #include "queue.h"
 
-struct task_queue ready_queue_p0;
-struct task_queue ready_queue_p1;
-struct task_queue ready_queue_p2;
-struct task_queue ready_queue;
-struct task_queue zombie_queue;
-struct task_queue blocked_on_clock_tick_queue;
-struct task_queue blocked_on_uart1_out_ready_queue;
-struct task_queue blocked_on_uart1_in_ready_queue;
-struct task_queue blocked_on_send_queue;
-struct task_queue blocked_on_receive_queue;
-struct task_queue blocked_on_reply_queue;
-
 struct process_control_block pcbs[MAX_NUM_PROCESSES];
 unsigned int init_stack[STACK_SIZE];
 struct process_control_block* cur_proc;

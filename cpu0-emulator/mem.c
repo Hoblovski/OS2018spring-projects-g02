@@ -45,7 +45,7 @@ uint32_t mmu_la2pa(machine_t* m, uint32_t la, uint32_t* isport,
   // check for privilege
   if (priv_chk && (m->regs[REG_FR] & FRBIT_PL) && IS_KLA(la)) {
     if (la != MEM_UART_OUT_DIRECT && la != SYSCALL_ID && la != SYSCALL_ARGS) { // allow debugging output in user mode
-      Printf("protection error: user code at %08X attemps to access ",
+      Printf("[%08X] protection error: user code attemps to access ",
           m->regs[REG_PC]);
       if (IS_PORT(la)) 
         Printf("port %08X\n", la); 

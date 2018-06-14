@@ -1,13 +1,6 @@
 #include <stdarg.h>
 #include "private_kernel_interface.h"
-
-unsigned loadbyteu(const char* a)
-{
-  unsigned r = ((unsigned) a) & 3;
-  unsigned rv = *(unsigned*) (((unsigned) a) & ~3);
-  return (rv >> (r << 3)) & 0xFF;
-}
-
+#include "memman.h"
 
 const char dig2hex[] = "0123456789abcdef";
 const char dig2hexbig[] = "0123456789ABCDEF";

@@ -14,3 +14,10 @@ void memcpyw(void* dst, const void* src, unsigned count){
     *(d++) = *(s++);
 }
 
+unsigned loadbyteu(const char* a){
+  unsigned r = ((unsigned) a) & 3;
+  unsigned rv = *(unsigned*) (((unsigned) a) & ~3);
+  return (rv >> (r << 3)) & 0xFF;
+}
+
+

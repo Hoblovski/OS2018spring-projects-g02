@@ -19,7 +19,6 @@
 #include "kernel_state.h"
 
 void schedule_next_task(void);
-void save_current_task(struct task_queue *, enum process_state);
 void save_current_task_as_ready(void);
 void mark_task_ready(struct process_control_block *);
 
@@ -51,6 +50,7 @@ void irq_ret(void);
 
 unsigned k_send_message(struct kernel_message * msg, unsigned dstpid);
 struct kernel_message* k_receive_message(void);
+struct kernel_message* k_receive_message_noblock(void);
 void k_yield(enum process_state state);
 
 int putchar_nobusy(int);

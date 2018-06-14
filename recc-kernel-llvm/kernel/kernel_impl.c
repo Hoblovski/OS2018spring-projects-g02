@@ -77,6 +77,7 @@ void k_yield(enum process_state state){
 }
 
 void k_task_exit(void){
+  printf_direct("[exit] %x\n", cur_proc->pid);
   if (cur_proc == idle_proc)
     fatal(40); // idle_proc can't exit
   cur_proc->state = NOT_ALLOCATED;
@@ -95,11 +96,9 @@ void k_syscall(unsigned id, unsigned args){
       k_task_exit();
       break;
     case SYSCALL_ID_PUTC: do {
-        struct kernel_message msg = {
-          .type = OTHER,
-          .data = args
-        };
+        struct kernel_message msg = { .type = OTHER, .data = args };
         k_send_message(&msg, uart1_out_pid);
+        k_receive_message();
       } while (0);
       break;
     case SYSCALL_ID_RECVMSG: do {
@@ -107,7 +106,16 @@ void k_syscall(unsigned id, unsigned args){
         memcpyw((void*) args, (void*) msg, sizeof(struct kernel_message)>>2);
         } while (0);
         break;
+    case SYSCALL_ID_UARTINREG: do {
+          struct kernel_message msg = { .type = UARTINREG, .data = 0 };
+          k_send_message(&msg, uart1_in_pid);
+        } while (0);
+        break;
+    case SYSCALL_ID_YIELD:
+        k_yield(args);
+        break;
     default:
+      fatal(45);
       // TODO: fault for unknown syscalls?
       break;
   }
@@ -130,8 +138,9 @@ void k_irq_handler(void){
     deassert_bits_in_flags_register(UART1_IN_ASSERTED_BIT);
     unblock_tasks_for_event(UART1_IN_READY);
   }else if((ass = flags_register & TIMER1_ASSERTED_BIT)){
-    if ((num_clock_ticks & 63) == 32)
-      printf_direct("tick %x\n", num_clock_ticks);
+// DEBUG
+//    if ((num_clock_ticks & 63) == 32)
+//      printf_direct("tick %x\n", num_clock_ticks);
     deassert_bits_in_flags_register(TIMER1_ASSERTED_BIT);
     num_clock_ticks++;
     unblock_tasks_for_event(CLOCK_TICK_EVENT);
@@ -139,7 +148,8 @@ void k_irq_handler(void){
     deassert_bits_in_flags_register(SYSCALL_BIT);
     unsigned syscall_id = read_syscall_id();
     unsigned syscall_args = read_syscall_args();
-    printf_direct("syscall %x %x", syscall_id, syscall_args);
+// DEBUG
+//    printf_direct("syscall %x %x\n", syscall_id, syscall_args);
     k_syscall(syscall_id, syscall_args);
   }else{
     /*  Something really bad happend. */
@@ -150,11 +160,12 @@ void k_irq_handler(void){
 
 unsigned k_send_message(struct kernel_message * msg, unsigned dstpid){
   // msg must already be in kernel space
-  printf_direct("msg %x -> %x", cur_proc->pid, dstpid);
+//  printf_direct("msg %x -> %x", cur_proc->pid, dstpid);
   struct process_control_block* dstproc = &(pcbs[dstpid]);
   msg->src_pid = cur_proc->pid;
   if (msg != NULL && message_queue_size(&(dstproc->mq)) < MAX_NUM_PROCESSES - 1) {
-    printf_direct("\n");
+// DEBUG
+//    printf_direct("\n");
     unsigned fr = read_flags_register() & GLOBAL_INTERRUPT_ENABLE_BIT;
     deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
     { // interrupt not enabled
@@ -164,12 +175,13 @@ unsigned k_send_message(struct kernel_message * msg, unsigned dstpid){
     dstproc->state = READY;
     return 0;
   } else {
-    printf_direct("dropped \n");
+// DEBUG
+//    printf_direct("dropped \n");
     return 1;
   }
 }
 
-struct kernel_message* k_receive_message(void) {
+struct kernel_message* k_receive_message(void){
   if (message_queue_size(&(cur_proc->mq)) != 0)
     return message_queue_pop(&(cur_proc->mq));
   cur_proc->state = BLOCKED_ON_MESSAGE;
@@ -184,6 +196,12 @@ struct kernel_message* k_receive_message(void) {
   }
   or_into_flags_register(fr);
   return rv;
+}
+
+struct kernel_message* k_receive_message_noblock(void){
+  if (message_queue_size(&(cur_proc->mq)) != 0)
+    return message_queue_pop(&(cur_proc->mq));
+  return NULL;
 }
 
 void set_irq_handler(void (*irq_handler_fcn)(void)){
@@ -422,7 +440,7 @@ void sched(void)
     }
     //
     if (cur_proc->pid != next_proc->pid)
-      printf_direct("sched %x -> %x\n", cur_proc->pid, next_proc->pid);
+      printf_direct("[sched] %x -> %x\n", cur_proc->pid, next_proc->pid);
     if (cur_proc != next_proc) {
       use_pgdir(next_proc->pgdir);
       struct process_control_block* old_proc = cur_proc;

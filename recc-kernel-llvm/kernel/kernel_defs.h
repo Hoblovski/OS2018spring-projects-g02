@@ -29,6 +29,8 @@
 #define SYSCALL_ID_EXIT 1
 #define SYSCALL_ID_PUTC 2
 #define SYSCALL_ID_RECVMSG 3
+#define SYSCALL_ID_UARTINREG 4
+#define SYSCALL_ID_YIELD 5
 
 #define HALTED_BIT                          (1u << 0u)
 #define GLOBAL_INTERRUPT_ENABLE_BIT         (1u << 1u)
