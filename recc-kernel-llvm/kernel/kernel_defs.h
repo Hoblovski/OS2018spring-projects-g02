@@ -26,6 +26,10 @@
 #define SYSCALL_ID 0xffff0060
 #define SYSCALL_ARGS 0xffff0070
 
+#define SYSCALL_ID_EXIT 1
+#define SYSCALL_ID_PUTC 2
+#define SYSCALL_ID_RECVMSG 3
+
 #define HALTED_BIT                          (1u << 0u)
 #define GLOBAL_INTERRUPT_ENABLE_BIT         (1u << 1u)
 #define RTE_BIT                             (1u << 2u)

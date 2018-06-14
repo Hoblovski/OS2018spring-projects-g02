@@ -324,7 +324,7 @@ void check_excep(machine_t* m)
   // check for ERET
   if (m->regs[REG_FR] & FRBIT_ERET) {
 #ifdef EXCEP_WATCH
-    Printf("@ [%08X] eret", m->regs[REG_PC]);
+    Printf("@ [%08X] eret%c", m->regs[REG_PC], (m->regs[REG_EPC] & 1) ? 'u' : 'k');
     fflush(stdout);
 #endif
     assert((!(m->regs[REG_FR] & FRBIT_PL)) && 

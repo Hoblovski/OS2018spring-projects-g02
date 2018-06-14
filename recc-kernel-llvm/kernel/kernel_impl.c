@@ -79,9 +79,38 @@ void k_yield(enum process_state state){
 void k_task_exit(void){
   if (cur_proc == idle_proc)
     fatal(40); // idle_proc can't exit
-  clean_mm(cur_proc);
   cur_proc->state = NOT_ALLOCATED;
+  // TODO: clean_mm. now has some bug caused by vm.
+  //  clean_mm(cur_proc);
+  // TODO: release kstack page
+  //    release_page(KLA2PA(cur_proc->kstack));
+  // directly releasing is dangerous because we are executing on 
+  //  kstack
   sched();
+}
+
+void k_syscall(unsigned id, unsigned args){
+  switch (id) {
+    case SYSCALL_ID_EXIT:
+      k_task_exit();
+      break;
+    case SYSCALL_ID_PUTC: do {
+        struct kernel_message msg = {
+          .type = OTHER,
+          .data = args
+        };
+        k_send_message(&msg, uart1_out_pid);
+      } while (0);
+      break;
+    case SYSCALL_ID_RECVMSG: do {
+        struct kernel_message* msg = k_receive_message();
+        memcpyw((void*) args, (void*) msg, sizeof(struct kernel_message)>>2);
+        } while (0);
+        break;
+    default:
+      // TODO: fault for unknown syscalls?
+      break;
+  }
 }
 
 void k_irq_handler(void){
@@ -107,10 +136,11 @@ void k_irq_handler(void){
     num_clock_ticks++;
     unblock_tasks_for_event(CLOCK_TICK_EVENT);
   }else if ((ass = flags_register & SYSCALL_BIT)){
+    deassert_bits_in_flags_register(SYSCALL_BIT);
     unsigned syscall_id = read_syscall_id();
     unsigned syscall_args = read_syscall_args();
     printf_direct("syscall %x %x", syscall_id, syscall_args);
-    deassert_bits_in_flags_register(SYSCALL_BIT);
+    k_syscall(syscall_id, syscall_args);
   }else{
     /*  Something really bad happend. */
     fatal(20);
@@ -120,10 +150,11 @@ void k_irq_handler(void){
 
 unsigned k_send_message(struct kernel_message * msg, unsigned dstpid){
   // msg must already be in kernel space
+  printf_direct("msg %x -> %x", cur_proc->pid, dstpid);
   struct process_control_block* dstproc = &(pcbs[dstpid]);
   msg->src_pid = cur_proc->pid;
-  if (msg != NULL && dstproc->state == BLOCKED_ON_MESSAGE 
-      && message_queue_size(&(dstproc->mq)) < MAX_NUM_PROCESSES - 1) {
+  if (msg != NULL && message_queue_size(&(dstproc->mq)) < MAX_NUM_PROCESSES - 1) {
+    printf_direct("\n");
     unsigned fr = read_flags_register() & GLOBAL_INTERRUPT_ENABLE_BIT;
     deassert_bits_in_flags_register(GLOBAL_INTERRUPT_ENABLE_BIT);
     { // interrupt not enabled
@@ -133,6 +164,7 @@ unsigned k_send_message(struct kernel_message * msg, unsigned dstpid){
     dstproc->state = READY;
     return 0;
   } else {
+    printf_direct("dropped \n");
     return 1;
   }
 }

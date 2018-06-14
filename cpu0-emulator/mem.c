@@ -173,12 +173,14 @@ void port_sw(machine_t* m, uint32_t port_addr, uint32_t v)
     assert(0);
   }
 #ifdef WATCH_UART_OUT_DIRECT
-  if (port_addr == map_port(MEM_UART_OUT_DIRECT))
+  if (port_addr == map_port(MEM_UART_OUT_DIRECT)) {
 #ifdef COLOR_OUTPUT
-    Printf("%s%c%s", KBLU, v, KNRM);
+    fprintf(stderr, "%s%c%s", KBLU, v, KNRM);
 #else
-    Printf("%c", v);
+    fprintf(stderr, "%c", v);
 #endif
+    fflush(stderr);
+  }
 #endif
   *(uint32_t*) &(m->port[port_addr]) = v;
 }

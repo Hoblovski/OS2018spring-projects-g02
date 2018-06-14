@@ -11,6 +11,7 @@ void hello_msg_ksvc(void){
 }
 
 void uart1_in_ksvc(void){
+  printf_direct("uartin pid=%x\n", cur_proc->pid);
   while(1){
     cur_proc->state = BLOCKED_ON_UART1_IN_READY;
     sched();
@@ -24,16 +25,21 @@ void uart1_in_ksvc(void){
 }
 
 void uart1_out_ksvc(void){
+  printf_direct("uartout pid=%x\n", cur_proc->pid);
   while(1){
     k_yield(BLOCKED_ON_UART1_OUT_READY);
     struct kernel_message *msg = k_receive_message();
     putchar_busy(msg->data);
+    msg->type = REPLY;
+    msg->data = 0;
+    k_send_message(msg, msg->src_pid);
   }
 }
 
 void stupid(){
   unsigned n_iter = 0;
   unsigned pr = 0;
+  struct kernel_message msg;
   while (1) {
     n_iter++;
     // compiler hack
@@ -41,7 +47,11 @@ void stupid(){
     if ((ass = n_iter & 0x3FFF) == 0) {
       *(unsigned*) 0xFFFFFFF0 = '~';
       pr ++;
-      if (pr == 4) syscall(1, 0xDEADBEEF);
+      if ((pr & 7) == 7) {
+        syscall(2, '$');
+        syscall(3, &msg);
+        *(unsigned*) 0xFFFFFFF0 = '0' + msg.data;
+      }
     }
   }
 }
