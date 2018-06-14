@@ -1,10 +1,13 @@
 #!/bin/sh
 
 echo "Building compiler and linker (about 30 mins on an ancient laptop)"
+#alias clang=clang-3.9
+#alias clang++=clang++-3.9
 cd llvm-3.9.0.src
+rm -rf build
 mkdir build && cd build
-cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Debug -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -G "Unix Makefiles" ..
-make llc llvm-mc lld      # 机器性能允许则可以 -jX 并行构建
+cmake -DCMAKE_CXX_COMPILER=clang++-3.9 -DCMAKE_C_COMPILER=clang-3.9 -DCMAKE_BUILD_TYPE=Debug -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -G "Unix Makefiles" ..
+make -j2 llc llvm-mc lld      # 机器性能允许则可以 -jX 并行构建
 
 echo "Building kernel"
 cd ..
@@ -15,6 +18,7 @@ make
 echo "Building emulator"
 cd ..
 cd cpu0-emulator
+rm -rf build
 mkdir build && cd build
 cmake ..
 make
