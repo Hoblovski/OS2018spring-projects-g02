@@ -16,21 +16,28 @@
 #include "user_proc.h"
 
 void user_proc_1(void){
-  unsigned entry = 1;
+  struct kernel_message recv_msg;
+	struct kernel_message message_to_reply;
+  message_to_reply.message_type = MESSAGE_ACKNOWLEDGED;
 	while(1){
-		if (entry == 1) {
-      printf("You're currently running a very simple microkernel that was built\n");
-      printf("for the purposes of demonstrating the 'One Page CPU' design, and\n");
-      printf("cross compiler collection.  This microkernel implements inter-process\n");
-      printf("communication, premptive context switching, interrupt based I/O, along\n");
-      printf("with a very simple timer that counts simulated clock ticks.\n");
-      printf("\nSome single-character commands include:\n\n");
-      printf("t -  Prints the number of simulated clock ticks since kernel start.\n");
-      printf("s -  Prints the stack pointer values of each task.\n");
-      printf("p -  Prints the priority of each task.\n");
-    }
-    entry = 0;
+    printf("Hello\n");
+    printf("Cmds: tspm\n");
+//    printf("You're currently running a very simple microkernel that was built\n");
+//    printf("for the purposes of demonstrating the 'One Page CPU' design, and\n");
+//    printf("cross compiler collection.  This microkernel implements inter-process\n");
+//    printf("communication, premptive context switching, interrupt based I/O, along\n");
+//    printf("with a very simple timer that counts simulated clock ticks.\n");
+//    printf("\nSome single-character commands include:\n\n");
+//    printf("t -  Prints the number of simulated clock ticks since kernel start.\n");
+//    printf("s -  Prints the stack pointer values of each task.\n");
+//    printf("p -  Prints the priority of each task.\n");
+    receive_message(&recv_msg);
+    reply_message(&message_to_reply, recv_msg.source_id);
 	}
+}
+
+void user_proc_2(void){
+  while (1) { }
 }
 
 unsigned int num_ticks = 0;
@@ -162,6 +169,9 @@ void uart1_in_server(void){
 void command_server(void){
 	struct kernel_message received_message;
 	struct kernel_message input_server_reply;
+	struct kernel_message dummy;
+  dummy.message_type = OTHER;
+  dummy.data = 0;
 	input_server_reply.message_type = MESSAGE_ACKNOWLEDGED;
 	while(1){
 		receive_message(&received_message);
@@ -175,16 +185,19 @@ void command_server(void){
 						unsigned int i;
 						printf("\n");
 						for(i = 0; i < MAX_NUM_PROCESSES; i++){
-							printf("Task 0x%x SP: 0x%X\n", (unsigned)pcbs[i].pid, (unsigned int)pcbs[i].stack_pointer);
+							printf("%x: %X\n", (unsigned)pcbs[i].pid, (unsigned int)pcbs[i].stack_pointer);
 						}
 						break;
 					}case 112:{/* letter 'p' */
 						unsigned int i;
 						printf("\n");
 						for(i = 0; i < MAX_NUM_PROCESSES; i++){
-							printf("Task 0x%x Priority: 0x%x\n", i, pcbs[i].priority);
+							printf("%x: %x\n", i, pcbs[i].priority);
 						}
 						break;
+          }case 'm':{ 
+            send_message(&dummy, PID_USER_PROC_1, &dummy);
+            break;
           }default:{
 						printf("\n");
 						printf("Unknown command.");

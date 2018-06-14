@@ -7,8 +7,8 @@
 #define STACK_POS 0xF0000000
 #endif
 
-#define UART_INIT_WAIT 10000
-#define UART_RANDOM_WAIT (rand() % 100000)
+#define UART_INIT_WAIT 6000
+#define UART_RANDOM_WAIT (rand() % 6000)
 
 #define MAPPED_POS 0x300000
 #define MAPPED_SIZE 0x100

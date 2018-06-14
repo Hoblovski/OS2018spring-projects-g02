@@ -307,6 +307,8 @@ void k_kernel_init(void){
       1, &user_proc_6_stack[STACK_SIZE-1], uart1_in_server);
   new_thread(PID_COMMAND_SERVER,
       3, &user_proc_7_stack[STACK_SIZE-1], command_server);
+  new_thread(PID_USER_PROC_2,
+      5, &user_proc_8_stack[STACK_SIZE-1], user_proc_2);
 
 	set_timer_period(INITIAL_TIMER_PERIOD_VALUE);
 	timer_interrupt_enable();

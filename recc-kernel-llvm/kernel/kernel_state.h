@@ -30,6 +30,7 @@
 #define PID_UART1_IN_READY_NOTIFIER 5
 #define PID_UART1_IN_SERVER 6
 #define PID_COMMAND_SERVER 7
+#define PID_USER_PROC_2 8
 
 /*
  * PCB:
@@ -65,5 +66,6 @@ extern unsigned int user_proc_4_stack[STACK_SIZE];
 extern unsigned int user_proc_5_stack[STACK_SIZE];
 extern unsigned int user_proc_6_stack[STACK_SIZE];
 extern unsigned int user_proc_7_stack[STACK_SIZE];
+extern unsigned int user_proc_8_stack[STACK_SIZE];
 
 #endif
