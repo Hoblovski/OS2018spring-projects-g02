@@ -9,6 +9,29 @@ unsigned int num_clock_ticks = 0;
 unsigned int saved_uart1_out_ready = 0;
 unsigned int saved_uart1_in_ready = 0;
 
+// DEBUG
+void print_debug_proc_name(unsigned pid) {
+  switch (pid) {
+    case 0:
+      printf_direct("idle");
+      break;
+    case 1:
+      printf_direct("welcome");
+      break;
+    case 2:
+      printf_direct("uartin");
+      break;
+    case 3:
+      printf_direct("uartout");
+      break;
+    case 4:
+      printf_direct("stupid");
+      break;
+    default:
+      printf_direct("???");
+  }
+}
+
 static struct process_control_block*
 select_task(enum process_state state)
 {
@@ -77,7 +100,8 @@ void k_yield(enum process_state state){
 }
 
 void k_task_exit(void){
-  printf_direct("[exit] %x\n", cur_proc->pid);
+  printf_direct("[exit] "); print_debug_proc_name(cur_proc->pid);
+  printf_direct("\n");
   if (cur_proc == idle_proc)
     fatal(40); // idle_proc can't exit
   cur_proc->state = NOT_ALLOCATED;
@@ -438,9 +462,14 @@ void sched(void)
         next_proc = &(pcbs[i]);
       }
     }
-    //
-    if (cur_proc->pid != next_proc->pid)
-      printf_direct("[sched] %x -> %x\n", cur_proc->pid, next_proc->pid);
+    // DEBUG
+    if (cur_proc->pid != next_proc->pid) {
+      printf_direct("[sched] ");
+      print_debug_proc_name(cur_proc->pid);
+      printf_direct(" -> ");
+      print_debug_proc_name(next_proc->pid);
+      printf_direct("\n");
+    }
     if (cur_proc != next_proc) {
       use_pgdir(next_proc->pgdir);
       struct process_control_block* old_proc = cur_proc;
