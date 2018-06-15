@@ -12,7 +12,7 @@ split -v
 focus
 screen -t stderr sh -c 'tty > "$FIFO"; read done < "$FIFO"'
 focus
-screen -t stdout sh -c 'read tty < "$FIFO"; eval "$CMD" 2> "$tty"; echo "[Command exited with status $?, press enter to exit]"; read prompt; echo done > "$FIFO"'
+screen -t stdout sh -c 'read tty < "$FIFO"; eval "$CMD" 2> "$tty"; echo "[Command exited with status $?, press enter to exit]"; read prompt; echo done > "$FIFO"; exec sleep 10'
 EOF
 
 CMD="$*"

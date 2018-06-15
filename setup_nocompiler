@@ -1,0 +1,10 @@
+#!/bin/sh
+cd recc-kernel-llvm
+make clean
+make
+cd ..
+cd cpu0-emulator
+cd build
+make -B
+cp ../../recc-kernel-llvm/build/a.img .
+../split './cpu0emu a.img 0 2'
