@@ -1,16 +1,18 @@
 # 编译系统实现
-本次作业中, 编译系统主要参考了 Cpu0 项目的[编译器后段](http://jonathan2251.github.io/lbd/),
+本次作业中, 编译系统主要参考了 Cpu0 项目的[编译器后端](http://jonathan2251.github.io/lbd/),
 [链接器](http://jonathan2251.github.io/lbt/). 编译系统基于 llvm 框架.
+
 LLVM 是一个以 "可拓展性"，"模块化" 为目标的编译系统框架， 包括编译器, 汇编器，binutils 工具如链接器和objdump，以及内部的一些工具。我们主要使用了其中的编译器，汇编器和链接器。
 LLVM 编译器框架是三段式的，每种高级语言对应一个前端，负责解析高级语言，生成类似三地址码的 IR；中间负责 IR 的优化；每种 ISA (x86, ARM...)对应一个后端，负责从 IR 生成机器指令。
 LLVM的整体组成框架如下图
+
 ![3](3.jpg)
 
 # 编译过程简述
 llvm 中, 编译过程分三段:
 1. clang 前端解析 C 代码 (或者其他语言), 将其转换成一种中间表示 IR.
 IR 就类似 AST / 三地址码, 和具体的机器 ISA 无关. 一个 IR 的例子如下
-```
+~~~ llvm
 define i32 @add2(i32 %a, i32 %b) {
 entry:
   %tmp1 = icmp eq i32 %a, 0br i1 %tmp1, label %done, label %recurse
@@ -22,11 +24,13 @@ recurse:
 done:
   ret i32 %b
 }
-```
+~~~
 2. 存在一个针对中间代码的通用优化器, 优化中间代码.
-3. llvm 后段 `llc` 将中间代码转换成最终的汇编代码, 或者等价地二进制目标文件.
+3. llvm 后端 `llc` 将中间代码转换成最终的汇编代码, 或者等价地二进制目标文件.
 
-本项目中编译器的工作基本就在第三部分. 接下来叙述一下第三部分进一步的流程.
+本项目中编译器的工作基本就在第三部分.
+接下来叙述一下第三部分进一步的流程.
+
 从 IR 转换成最终的目标代码, 需要完成如下的步骤
 1. Instruction Selection (ISel) 指令选择: 使用目标 ISA 的指令来完成 IR 中的操作,
 如对于 IR 中的 `add`, 我们可以选择 `add` 和 `addiu`.
@@ -70,7 +74,7 @@ LLVM 使用的是一种类似 Tree Rewriting (参见龙书 Instruction Selection
 ### LLVM 的 DAG 相关的模型
 中间代码产生的 IR 还不能直接应用到我们的指令选择, 因为
 * IR 使用的是虚拟寄存器
-* IR 中有大量高层操作, 如依赖于 ABI 的 `call`, `ret`, 抽象的 "加" 在底层对应 `addrr`, `addri` 等.
+* IR 中有大量高层操作, 如依赖于 ABI 的 `call`, `ret`, 抽象的 "加" 在底层对应寄存器寄存器加, 寄存器立即数加等.
 
 所以 DAG 还要经历所谓的 Lowering. 包括
 * 操作本身: 将高层次的操作变得更低层次, 如把 IR 的 `call` 变成加载目标地址和 `jalr`
@@ -110,7 +114,7 @@ LLVM 为了模块化, 大量使用了 OO 的设计,
 改写域 / 实现虚函数.
 
 1. **注册**: 在 llvm 框架中注册后端.
-  - 相关文件: `LLVM/lib/` 中除了 `LLVM/lib/Target/XXX` 的新增代码.
+  - 相关文件: `LLVM/lib/` 中除了 `LLVM/lib/Target/XXX` 的新增代码, 其中 `XXX` 是我们的架构名字.
 
 2. **描述ISA**: 
   - 相关文件: (`XXX/` 表示 `LLVM/lib/Target/XXX`, 在我们的项目中 `XXX` 就是 Cpu0)
