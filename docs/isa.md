@@ -1,120 +1,97 @@
-# 指令集描述
-
-我们项目中使用的基本是 recc 项目的指令集, 但是为了方便增加和修改了若干指令.
-修改加入指令的原因有集中
-
-* 这个指令的操作很常用, 并且加入之后能有效缩减 kernel 大小. 如 `addiu`, `lui`
-
-* 这个指令可以被其他指令代替, 且使用其他指令完成这个指令的功能比反过来简单的多. 如 `xor` 替换 `not`
-
-* 对 llvm 的指令选择理解有限, 无法设计从已有指令完成某功能的指令序列. 如 `jsub`, `ori`
-
-未来编译系统方面的一个目标就是消除最后一种指令, 做到最精简的 ISA.
-
-## 寄存器结构
-有 17 个 32 位寄存器, 使用惯例参考了 opcpu 和 mips. (参见 Cpu0RegisterInfo.td 文件)
-```
-+-------+------+-----------------------------------------------------------------------------------------+
-| Regno | Name | Usage                                                                                   |
-+-------+------+-----------------------------------------------------------------------------------------+
-| 0     | pc   | hold's current instruction's address                                                    |
-| 1     | sp   | stack pointer                                                                           |
-| 2     | fp   | frame pointer, for llvm compiler it's not used. callee-save register (CSR).             |
-| 3     | zr   | zero register, always zero even written another value                                   |
-| 4     | fr   | flags register. see opcpu document.                                                     |
-| 5     | wr   | word register, always 4 even written another value                                      |
-| 6     | at   | not used. will be used as GPR                                                           |
-| 7     | lr   | link register, holds return address. CSR                                                |
-| 8     | gp   | global pointer. not used. will be as GPR                                                |
-| 9     | v0   | holds return value                                                                      |
-| 10    | v1   | holds return value if v0 is not enough (even bigger return values are stored on stacks) |
-| 11    | a0   | holds the first argument (from left to right)                                           |
-| 12    | a1   | holds the second argument (from left to right). more args are passed on stack.          |
-| 13    | s0   | CSR GPR                                                                                 |
-| 14    | s1   | CSR GPR                                                                                 |
-| 15    | t0   | GPR                                                                                     |
-| 16    | t1   | GPR                                                                                     |
-| 17    | t2   | GPR                                                                                     |
-+-------+------+-----------------------------------------------------------------------------------------+
-```
+# 指令系统介绍
+为了与操作系统以及编译器更好的适配，我们的指令系统在[One-page CPU](http://recc.robertelder.org/op-cpu.txt)的基础上进行了改动。
 
 ## 指令格式
-指令定长 32 位, 有三种格式, 如下 (参见 Cpu0InstrFormats.td 文件)
-```
-R-type
- 31       26 25     21 20     16 15     11 10                  0
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  opcode   |   rx    |   ry    |   rz    |      reserved       |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      6          5         5         5              11
+指令按格式可以分为R型指令、I型指令、J型指令三种，格式分别如下所示：
 
-I-type
- 31       26 25     21 20     16 15                            0
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  opcode   |   rx    |   ry    |             imm               |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      6          5         5                  16       
+**R型指令**
 
-J-type (is expected to be removed in the future)
- 31       26 25                                                0
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  opcode   |                     offset                        |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      6                             26                 
-```
+| 31-26  | 25-21 | 20-16 | 15-11 | 10-0     |
+| ---    | ---   | ---   | ---   | ---      |
+| opcode | rx    | ry    | rz    | reserved |
+
+**I型指令**
+
+| 31-26  | 25-21 | 20-16 | 15-0 |
+| ---    | ---   | ---   | ---  |
+| opcode | rx    | ry    | imm  |
+
+**J型指令**
+
+| 31-26  | 25-0   |
+| ---    | ---    |
+| opcode | offset |
 
 ## 指令列表
-  以下 `$rx` 表示 `rx` 是一个寄存器, `off($rs)` 表示内存地址 `[$rs+off]`.
-  (参见 Cpu0InstrInfo.td 文件)
-### R-type
-```
-+-------------------+--------+---------------------+-----------------------+
-| Assembly          | Opcode | Semantics           | Others                |
-+-------------------+--------+---------------------+-----------------------+
-| add $rx, $ry, $rz | 0      | $rx = $ry + $rz;    | no overflow exception |
-| sub $rx, $ry, $rz | 1      | $rx = $ry - $rz;    | no overflow exception |
-| mul $rx, $ry, $rz | 2      | $rx = $ry * $rz;    | taking lower 32 bits  |
-| div $rx, $ry, $rz | 3      | not implemented yet |                       |
-| and $rx, $ry, $rz | 4      | $rx = $ry & $rz;    | bitwise and           |
-| or $rx, $ry, $rz  | 5      | $rx = $ry | $rz;    | bitwise or            |
-| xor $rx, $ry, $rz | 6      | $rx = $ry ^ $rz;    | bitwise exclusive or  |
-| shr $rx, $ry, $rz | 9      | $rx = $ry shr $rz;  | logical shift right   |
-| shl $rx, $ry, $rz | 10     | $rx = $ry shl $rz;  | logical shift left    |
-+-------------------+--------+---------------------+-----------------------+
-```
-### I-type
-```
-+---------------------+--------+----------------------------------------------+------------------------------------+
-| Assembly            | Opcode | Semantics                                    | Others                             |
-+---------------------+--------+----------------------------------------------+------------------------------------+
-| loa $rx, imm($ry)   | 7      | $rx = mem<int32>[$ry + sign-extend(imm)];    | must be aligned                    |
-| sto $rx, imm($ry)   | 8      | mem<int32>[$ry + sign-extend(imm)] = $rx;    | must be aligned                    |
-| beq $rx, $ry, imm   | 11     | if $rx == $ry then $pc += sign-extend(imm);  | for now imm is not multiplied by 4 |
-| blt $rx, $ry, imm   | 12     | if $rx u< $ry then $pc += sign-extend(imm);  | unsigned comparison. same as beq.  |
-| addiu $rx, $ry, imm | 13     | $rx = $ry + sign-extend(imm);                | no overflow exception              |
-| lui $rx, imm        | 14     | $rx = imm << 16, clearing the lower 16 bits; | $ry should be 0b00000              |
-| ori $rx, $ry, imm   | 16     | $rx = $ry O zero-extend(imm);                | bitwise or                         | *
-| bne $rx, $ry, imm   | 19     | if $rx != $ry then $pc += sign-extend(imm);  | same as beq                        | *
-| jr $rx              | 20     | $pc = $rx;                                   |                                    | *
-| jalr $rx            | 21     | $lr = $pc+4; $pc = $rx;                      |                                    |
-+---------------------+--------+----------------------------------------------+------------------------------------+
-```
-### J-type
-```
-+-------------+--------+-------------------------------------------+--------+
-| Assembly    | Opcode | Semantics                                 | Others |
-+-------------+--------+-------------------------------------------+--------+
-| jsub offset | 22     | $lr = $pc+4; $pc += sign-extend(offset)+4 |        | *
-+-------------+--------+-------------------------------------------+--------+
-```
-以上
 
-* 对于本项目的编译器, 我们不支持算术右移, C 中的 `a >> b` 会被编译成逻辑右移.
+**R型指令**
 
-* PC 指向下一条指令
+| 汇编代码            | opcode | 含义                 | 注释               |
+| ---                 | ---      | ---                  | ---                |
+| `add $rx, $ry, $r`z | 0        | `$rx = $ry + $rz;`   |                    |
+| `sub $rx, $ry, $r`z | 1        | `$rx = $ry - $rz;`   |                    |
+| `mul $rx, $ry, $r`z | 2        | `$rx = $ry * $rz;`   | 只取低32位         |
+| `and $rx, $ry, $r`z | 4        | `$rx = $ry & $rz;`   | 按位取与           |
+| `or $rx, $ry, $r`z  | 5        | `$rx = $ry`          | $rz;               | 按位取或 |
+| `xor $rx, $ry, $r`z | 6        | `$rx = $ry ^ $rz;`   | 按位取异或         |
+| `shr $rx, $ry, $r`z | 9        | `$rx = $ry shr $rz;` | 逻辑右移，高位补零 |
+| `shl $rx, $ry, $r`z | 10       | `$rx = $ry shl $rz;` |                    |
 
-* 最后有一个 `*` 的指令表示是计划未来去除的
+**I型指令**
 
-## ABI
-参见寄存器结构.
+| 汇编代码              | opcode | 含义                                           | 注释                             |
+| ---                   | ---      | ---                                            | ---                              |
+| `loa $rx, imm($ry)`   | 7        | `$rx = mem<int32>[$ry + sign-extend(imm)];`    | 如果是访问RAM，地址必须是4对齐的 |
+| `sto $rx, imm($ry)`   | 8        | `mem<int32>[$ry + sign-extend(imm)] = $rx;`    | 同上                             |
+| `beq $rx, $ry, imm`   | 11       | `if $rx == $ry then $pc += sign-extend(imm);`  |                                  |
+| `blt $rx, $ry, imm`   | 12       | `if $rx u< $ry then $pc += sign-extend(imm);`  | 无符号比较                       |
+| `addiu $rx, $ry, imm` | 13       | `$rx = $ry + sign-extend(imm);`                |                                  |
+| `lui $rx, imm`        | 14       | `$rx = imm << 16, clearing the lower 16 bits;` |                                  |
+| `ori $rx, $ry, imm`   | 16       | `$rx = $ry O zero-extend(imm);`                | 按位与                           |
+| `bne $rx, $ry, imm`   | 19       | `if $rx != $ry then $pc += sign-extend(imm);`  |                                  |
+| `jr $rx`              | 20       | `$pc = $rx;`                                   |                                  |
+| `jalr $rx`            | 21       | `$lr = $pc+4; $pc = $rx;`                      |                                  |
+
+**J型指令**
+
+| 汇编代码    | opcode | 含义                                      | 注释 |
+| ---         | ---      | ---                                       | ---  |
+| `jsub offset` | 22       | `$lr = $pc+4; $pc += sign-extend(offset)+4` |      |
+
+## 寄存器
+硬件上共支持32个寄存器，编号从0~31，使用约定如下：（有些没有被编译器使用的寄存器在硬件上也存在，所以都列为通用寄存器）
+
+| 编号  | 名称 | 用途                                         |
+| ---   | ---  | ---                                          |
+| 0     | pc   | 保存当前的指令地址                           |
+| 1     | sp   | 栈指针                                       |
+| 2     | fp   | 在当前的llvm系统下未使用，被调用者保存寄存器 |
+| 3     | zr   | 0寄存器，其值永远是0                         |
+| 4     | fr   | 标志位寄存器，保存中断相关信息               |
+| 5     | wr   | 字长寄存器，其值永远是4                      |
+| 6     | at   | 通用寄存器                                   |
+| 7     | lr   | 链接寄存器，储存函数的返回地址               |
+| 8~17  |      | 通用寄存器                                   |
+| 18    | epc  | 中断发生地址寄存器                           |
+| 19~31 |      | 通用寄存器                                   |
+
+这里，fr是一个特殊的寄存器，它保存了一些与中断相关的信息，具体而言：
+
+| fr 位 | 含义                                                                                  |
+| ---   | ---                                                                                   |
+| 0     | 如果某条指令将这一位置为 1, 则 CPU 停止执行.                                          |
+| 1     | 全局中断使能.                                                                         |
+| 2     | 如果某条指令将这一位置为 1, 则 CPU 执行 "从异常返回" 指令 (x86 的 iret, mips 的 eret) |
+| 3     | 时钟中断使能                                                                          |
+| 4     | 时钟中断, 发生时钟中断时硬件将此位置为 1, 软件必须将其置回为 0                        |
+| 5     | 串口可写中断使能, 是否使能因串口变为可写状态而造成的中断                              |
+| 6     | 串口可写中断, 发生串口可写中断时硬件将此位置为 1, 软件必须将其置回为 0                |
+| 7     | 串口可读中断使能, 同上                                                                |
+| 8     | 串口可读中断, 发生中断时由硬件置为 1, 软件必须将其置回为 0                            |
+| 9     | 串口可写, 为 1 表示串口可写. 软件希望写串口, 则需要写完将此位设为 0.                  |
+| 10    | 串口可读, 同上. 硬件设为 1, 软件设为 0.                                               |
+| 11    | 当前特权级, 1 为 user, 0 为 kernel                                                    |
+| 12    | 缺页异常位, 发生缺页异常时该位被硬件置为 1                                            |
+
+
 

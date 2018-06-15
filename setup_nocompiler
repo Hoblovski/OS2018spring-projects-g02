@@ -7,6 +7,7 @@ cd cpu0-emulator
 rm -r build
 mkdir build
 cd build
+cmake ..
 make -B
 cp ../../recc-kernel-llvm/build/a.img .
 ../split './cpu0emu a.img 0 2'
