@@ -4,6 +4,8 @@ make clean
 make
 cd ..
 cd cpu0-emulator
+rm -r build
+mkdir build
 cd build
 make -B
 cp ../../recc-kernel-llvm/build/a.img .

@@ -4,10 +4,7 @@
 #include "queue.h"
 #include "memman.h"
 
-unsigned int current_task_id = 0;
 unsigned int num_clock_ticks = 0;
-unsigned int saved_uart1_out_ready = 0;
-unsigned int saved_uart1_in_ready = 0;
 
 // DEBUG
 void print_debug_proc_name(unsigned pid) {
@@ -338,6 +335,7 @@ void map_segment(pde_t* pd, unsigned la, unsigned pa) {
   }
 }
 
+// maybe we should call this `calloc_proc`?
 struct process_control_block* alloc_proc(void) {
   unsigned rv = 0;
   for (rv = 0; rv < MAX_NUM_PROCESSES; rv++)
